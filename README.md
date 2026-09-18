@@ -140,16 +140,16 @@ is a ~40-line Cloudflare Worker that adds that one header; set
 
 ## Deploying
 
-Live at **[tracktier.bavenstrand.se](https://tracktier.bavenstrand.se)**.
+Live at **[bavenstrand.se/tracktier](https://bavenstrand.se/tracktier/)**.
 
 Push to `main`. The workflow typechecks, runs the tests, builds, copies
 `index.html` to `404.html` so deep links survive a refresh, and publishes to
 GitHub Pages. Pages is set to "GitHub Actions" as its source.
 
-`public/CNAME` holds the custom domain so it survives every deploy, and the
-build uses the default base of `/` because the site is served from the root of
-its own domain. Serving from `<user>.github.io/tracktier/` instead would need
-`VITE_BASE=/tracktier/` at build time.
+The build sets `VITE_BASE` to `/<repo>/` because this is a project page served
+from a subpath — without it every asset URL resolves against the domain root and
+the page loads nothing. Moving the site to a domain of its own would mean
+dropping that and adding a `public/CNAME`.
 
 ## Notes for maintainers
 

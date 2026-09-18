@@ -29,9 +29,11 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
-      # Served from the root of a custom domain, so the default base of "/" is
-      # correct. A project page on github.io would need VITE_BASE=/<repo>/.
+      # A project page is served from /<repo>/, so the bundle's base must match
+      # or every asset URL resolves against the wrong root.
       - run: npm run build
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
 
       # Pages has no rewrite rules; this makes a deep link survive a refresh.
       # Routing itself lives in the URL fragment, which never reaches the server.

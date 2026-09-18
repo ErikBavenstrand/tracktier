@@ -92,6 +92,28 @@ export function App() {
           links still work.
         </p>
       )}
+
+      {/* Deezer's API terms require any application using it to carry a clearly
+          visible Deezer credit, so this is a licence condition, not a courtesy.
+          See developers.deezer.com/guidelines/logo. */}
+      <footer className="site-footer">
+        <span>
+          Albums, artwork and previews from{' '}
+          <a href="https://www.deezer.com" target="_blank" rel="noreferrer noopener">
+            Deezer
+          </a>
+        </span>
+        <span className="site-footer-sep" aria-hidden="true">
+          ·
+        </span>
+        <a
+          href="https://github.com/ErikBavenstrand/tracktier"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          Source
+        </a>
+      </footer>
     </div>
   )
 }

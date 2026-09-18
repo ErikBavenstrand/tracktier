@@ -1370,6 +1370,38 @@ kbd {
   margin-block: 2px;
 }
 
+/* ============================================================ footer */
+
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 56px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.site-footer a {
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-strong);
+  transition: color 150ms var(--ease), text-decoration-color 150ms var(--ease);
+}
+
+.site-footer a:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+.site-footer-sep {
+  opacity: 0.5;
+}
+
 /* ============================================================ states */
 
 .spinner-block {

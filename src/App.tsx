@@ -112,9 +112,6 @@ export function App() {
 
       <footer className="site-footer">
         <Attribution />
-        <span className="site-footer-sep" aria-hidden="true">
-          ·
-        </span>
         <a
           href="https://github.com/ErikBavenstrand/tracktour"
           target="_blank"

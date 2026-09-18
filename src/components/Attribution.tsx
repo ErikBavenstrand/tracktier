@@ -23,11 +23,12 @@ export function Attribution() {
           href="https://www.deezer.com"
           target="_blank"
           rel="noreferrer noopener"
-          aria-label="Powered by Deezer"
+          aria-label="Albums and previews from Deezer"
         >
-          <span className="faint">Albums and previews from</span>
-          {/* Deezer's own mark, unmodified, as their guidelines require. */}
-          <img src={deezerLogo} alt="Deezer" height={16} />
+          <span className="attribution-label">Albums and previews from</span>
+          {/* Deezer's own mark, unmodified and large enough to actually read,
+              which is what their guidelines mean by "clearly visible". */}
+          <img src={deezerLogo} alt="Deezer" height={26} />
         </a>
       )}
 

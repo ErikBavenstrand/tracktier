@@ -252,3 +252,61 @@ describe('refining repairs mistakes', () => {
     expect(new Set(state.placed).size).toBe(12)
   })
 })
+
+describe('the refining sweep never repeats itself', () => {
+  const pairKey = (a: string, b: string) => [a, b].sort().join('|')
+
+  /** Run a sweep over a deliberately disordered list, recording every question. */
+  function sweep(placedOrder: string[]) {
+    let state = runToCompletion(placedOrder.length, 3)
+    state = { ...state, placed: placedOrder }
+    state = startRefining(state)
+
+    const asked: string[] = []
+    let guard = 0
+    while (!isComplete(state)) {
+      const pair = currentPair(state)
+      if (!pair) break
+      if (++guard > 500) throw new Error('sweep did not terminate')
+      asked.push(pairKey(pair.a, pair.b))
+      state = answer(state, pair.a < pair.b ? 'a' : 'b')
+    }
+    return { asked, placed: state.placed }
+  }
+
+  it('asks each pair at most once', () => {
+    // A track five places out of position, which forces several swaps.
+    const { asked } = sweep(['t00', 't01', 't04', 't02', 't03', 't05', 't06', 't07'])
+    expect(new Set(asked).size).toBe(asked.length)
+  })
+
+  it('still repairs the order', () => {
+    const { placed } = sweep(['t00', 't01', 't04', 't02', 't03', 't05', 't06', 't07'])
+    expect(placed).toEqual(ids(8))
+  })
+
+  it('costs only n-1 questions when nothing is wrong', () => {
+    const sorted = ids(9)
+    const { asked, placed } = sweep(sorted)
+    expect(asked).toHaveLength(8)
+    expect(placed).toEqual(sorted)
+  })
+
+  it('stays budgeted, and honest, on a list it cannot fully fix', () => {
+    // A completely shuffled list needs O(n^2) comparisons, and the sweep is
+    // capped so an indecisive listener cannot make it run forever. Refining
+    // only ever meets a near-sorted list, so the cap costs nothing in practice
+    // — but it must still ask nothing twice and leave the order better.
+    const scrambled = ['t05', 't03', 't07', 't00', 't06', 't01', 't04', 't02']
+    const { asked, placed } = sweep(scrambled)
+    const inversions = (o: string[]) => {
+      let n = 0
+      for (let i = 0; i < o.length; i++)
+        for (let j = i + 1; j < o.length; j++) if (o[i]! > o[j]!) n++
+      return n
+    }
+    expect(new Set(asked).size).toBe(asked.length)
+    expect(inversions(placed)).toBeLessThan(inversions(scrambled))
+    expect(new Set(placed).size).toBe(8)
+  })
+})

@@ -36,8 +36,16 @@ export interface SortState {
   /** Binary search window within `placed`. */
   lo: number
   hi: number
-  /** While refining: the neighbouring pair under review. */
+  /** While refining: how far the sweep has reached. Only ever moves forward. */
   cursor: number
+  /**
+   * While refining: where the track being carried has got to.
+   *
+   * Separate from `cursor` on purpose. Using one index for both meant that
+   * after a swap the sweep stepped back, settled that pair, then walked
+   * forward onto the pair it had just decided — asking the same question twice.
+   */
+  bubble: number
   /** Guards the refining pass against an indecisive listener looping forever. */
   refineBudget: number
   /** Whether the neighbour sweep has been run, so it is only offered once. */
@@ -53,6 +61,7 @@ interface Step {
   lo: number
   hi: number
   cursor: number
+  bubble: number
   refineBudget: number
   placed: string[]
   queueLength: number
@@ -83,6 +92,7 @@ export function initSort(ids: string[], seed = 1): SortState {
     lo: 0,
     hi: 0,
     cursor: 0,
+    bubble: 0,
     // Two sweeps' worth: enough to carry a displaced track back where it
     // belongs, not enough to loop on a listener who keeps changing their mind.
     refineBudget: Math.max(0, (ids.length - 1) * 2),
@@ -117,15 +127,17 @@ export const isOrdered = (state: SortState): boolean =>
  */
 export function startRefining(state: SortState): SortState {
   if (!isOrdered(state) || state.placed.length < 2) return state
-  return { ...state, phase: 'refining', cursor: 0, refined: true }
+  // Insertion sort's outer loop starts at the second track: the first has
+  // nothing above it to be wrong about.
+  return { ...state, phase: 'refining', cursor: 1, bubble: 1, refined: true }
 }
 
 /** The two tracks to put in front of the listener, or null when finished. */
 export function currentPair(state: SortState): { a: string; b: string } | null {
   if (state.phase === 'refining') {
     // `a` is always the one currently ranked higher, so a win for `b` is a swap.
-    const a = state.placed[state.cursor]
-    const b = state.placed[state.cursor + 1]
+    const a = state.placed[state.bubble - 1]
+    const b = state.placed[state.bubble]
     return a && b ? { a, b } : null
   }
   if (state.current === null || state.lo >= state.hi) return null
@@ -144,6 +156,7 @@ export function answer(state: SortState, verdict: Verdict): SortState {
     lo: state.lo,
     hi: state.hi,
     cursor: state.cursor,
+    bubble: state.bubble,
     refineBudget: state.refineBudget,
     placed: state.placed,
     queueLength: state.queue.length,
@@ -186,11 +199,12 @@ export function answer(state: SortState, verdict: Verdict): SortState {
 }
 
 /**
- * One step of the neighbour sweep.
+ * One step of the neighbour sweep — insertion sort, driven by the listener.
  *
- * A swap steps the cursor back one place, so a track that was sitting too low
- * keeps rising until it meets someone it loses to — the same motion as an
- * insertion sort, driven by the listener.
+ * `cursor` is the outer loop: the track being put in its place. `bubble` is how
+ * far that track has risen so far. A swap only moves `bubble`, so each question
+ * pairs the carried track with a neighbour it has not met; settling it advances
+ * `cursor` past everything already agreed. Nothing is asked twice.
  */
 function refine(state: SortState, verdict: Verdict, step: Step): SortState {
   const next: SortState = {
@@ -202,19 +216,27 @@ function refine(state: SortState, verdict: Verdict, step: Step): SortState {
 
   let placed = state.placed
   let cursor = state.cursor
+  let bubble = state.bubble
 
   if (verdict === 'b') {
+    // The lower one wins, so it keeps rising.
     placed = [...state.placed]
-    const upper = placed[cursor]!
-    placed[cursor] = placed[cursor + 1]!
-    placed[cursor + 1] = upper
-    cursor = Math.max(0, cursor - 1)
+    const upper = placed[bubble - 1]!
+    placed[bubble - 1] = placed[bubble]!
+    placed[bubble] = upper
+    bubble -= 1
+    if (bubble <= 0) {
+      cursor += 1
+      bubble = cursor
+    }
   } else {
-    cursor = cursor + 1
+    // Settled against the track above it, so it is settled against all of them.
+    cursor += 1
+    bubble = cursor
   }
 
-  const finished = cursor >= placed.length - 1 || next.refineBudget <= 0
-  return { ...next, placed, cursor, phase: finished ? 'done' : 'refining' }
+  const finished = cursor >= placed.length || next.refineBudget <= 0
+  return { ...next, placed, cursor, bubble, phase: finished ? 'done' : 'refining' }
 }
 
 export function undo(state: SortState): SortState {
@@ -229,6 +251,7 @@ export function undo(state: SortState): SortState {
       phase: 'refining',
       placed: step.placed,
       cursor: step.cursor,
+      bubble: step.bubble,
       refineBudget: step.refineBudget,
       comparisons: state.comparisons - 1,
       history: state.history.slice(0, -1),
@@ -251,6 +274,7 @@ export function undo(state: SortState): SortState {
     lo: step.lo,
     hi: step.hi,
     cursor: step.cursor,
+    bubble: step.bubble,
     refineBudget: step.refineBudget,
     comparisons: state.comparisons - 1,
     history: state.history.slice(0, -1),
@@ -278,7 +302,7 @@ export function progressOf(state: SortState): SortProgress {
 
   if (state.phase === 'refining') {
     const total = Math.max(1, state.placed.length - 1)
-    const done = Math.min(state.cursor, total)
+    const done = Math.min(Math.max(0, state.cursor - 1), total)
     return {
       phase: state.phase,
       done,

@@ -1584,14 +1584,21 @@ kbd {
 .site-footer {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 14px 20px;
   margin-top: 56px;
-  padding-top: 20px;
+  padding-top: 22px;
   border-top: 1px solid var(--line);
   font-size: 12.5px;
   color: var(--text-faint);
+}
+
+@media (max-width: 560px) {
+  .site-footer {
+    justify-content: center;
+    text-align: center;
+  }
 }
 
 .site-footer a {
@@ -1605,10 +1612,6 @@ kbd {
 .site-footer a:hover {
   color: var(--accent);
   text-decoration-color: currentColor;
-}
-
-.site-footer-sep {
-  opacity: 0.5;
 }
 
 /* ============================================================ states */
@@ -1768,26 +1771,46 @@ kbd {
 .attribution {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
+/* The logo is the anchor and the sentence is the caption, so they are stacked
+   rather than run together — an inline logo mid-sentence never sits right
+   against text of a different size. */
 .attribution-deezer {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   text-decoration: none;
 }
 
+.attribution-label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
 .attribution-deezer img {
-  height: 16px;
+  display: block;
+  height: 26px;
   width: auto;
-  opacity: 0.85;
+  /* Deezer's guidelines ask for clear space around the mark. */
+  margin-left: 1px;
+  opacity: 0.9;
   transition: opacity 150ms var(--ease);
 }
 
 .attribution-deezer:hover img {
   opacity: 1;
+}
+
+@media (max-width: 560px) {
+  .attribution-deezer {
+    align-items: center;
+  }
 }
 
 .roster-bar {

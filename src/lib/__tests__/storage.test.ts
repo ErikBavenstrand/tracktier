@@ -99,3 +99,28 @@ describe('recognising your own link', () => {
     expect(isOwnCode('deezer', '103248', 'someone-elses')).toBe(false)
   })
 })
+
+describe('bulk imports from a comparison link', () => {
+  it('will not swap a newer ranking for the copy inside somebody else’s link', () => {
+    saveRanking(ALBUM, ranking({ author: 7, mine: true, code: 'fresh', order: [2, 1, 0] }))
+    // The same author, but the older code a week-old compare link still carries.
+    saveRanking(ALBUM, ranking({ author: 7, code: 'stale', order: [0, 1, 2] }), false)
+
+    expect(rankingsOf()).toHaveLength(1)
+    expect(rankingsOf()[0]!.code).toBe('fresh')
+  })
+
+  it('still adds people it has never seen', () => {
+    saveRanking(ALBUM, ranking({ author: 7, mine: true }))
+    saveRanking(ALBUM, ranking({ label: 'Maja', author: 8, code: 'b' }), false)
+
+    expect(rankingsOf().map((item) => item.label)).toEqual(['Isak', 'Maja'])
+  })
+
+  it('is a no-op when the exact ranking is already held', () => {
+    saveRanking(ALBUM, ranking({ author: 7, code: 'same' }))
+    saveRanking(ALBUM, ranking({ author: 7, code: 'same' }), false)
+
+    expect(rankingsOf()).toHaveLength(1)
+  })
+})

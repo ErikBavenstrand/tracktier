@@ -22,11 +22,26 @@ export interface TrackVerdict {
   spread: number
 }
 
+/** How two particular people got on, by their index in the entry list. */
+export interface PairAgreement {
+  a: number
+  b: number
+  /** Kendall tau over the tracks both of them ranked, in [-1, 1]. */
+  tau: number
+}
+
 export interface Comparison {
   rows: TrackVerdict[]
-  /** Kendall tau over the tracks both ranked, in [-1, 1]. Only for pairs. */
+  /**
+   * Kendall tau across everyone, in [-1, 1]. For three or more people it is the
+   * mean over every pair of them — the headline used to vanish at exactly the
+   * group size this is for, which left a five-way comparison saying less than
+   * a two-way one.
+   */
   agreement: number | null
-  /** Tracks everyone put within one place of each other. */
+  /** Every pair, worst first, for saying who is closest to whom. */
+  pairs: PairAgreement[]
+  /** Tracks everyone placed close together. */
   unanimous: TrackVerdict[]
   /** Tracks people most disagree about, worst first. */
   contested: TrackVerdict[]
@@ -81,13 +96,31 @@ export function compareRankings(entries: Entry[]): Comparison {
   })
   rows.sort((x, y) => x.mean - y.mean)
 
-  const agreement =
-    entries.length === 2 ? kendallTau(entries[0]!.order, entries[1]!.order) : null
+  const pairs: PairAgreement[] = []
+  for (let a = 0; a < entries.length; a++) {
+    for (let b = a + 1; b < entries.length; b++) {
+      const tau = kendallTau(entries[a]!.order, entries[b]!.order)
+      if (tau !== null) pairs.push({ a, b, tau })
+    }
+  }
+  pairs.sort((x, y) => y.tau - x.tau)
+  const agreement = pairs.length
+    ? pairs.reduce((sum, pair) => sum + pair.tau, 0) / pairs.length
+    : null
+
+  // "Within one place of each other" is a fair bar for two people and an
+  // impossible one for five, so it scales with the album. Without this the
+  // agreed-on panel simply stopped rendering once a group got big enough to
+  // be interesting, leaving a comparison that could only show conflict.
+  const together = Math.max(1, Math.round(rows.length * 0.12))
 
   return {
     rows,
     agreement,
-    unanimous: rows.filter((row) => row.spread <= 1 && row.positions.every((p) => p !== null)),
+    pairs,
+    unanimous: rows.filter(
+      (row) => row.spread <= together && row.positions.every((p) => p !== null),
+    ),
     contested: [...rows].sort((x, y) => y.spread - x.spread).filter((row) => row.spread > 1),
   }
 }

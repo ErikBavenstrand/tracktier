@@ -13,8 +13,17 @@ export interface GapRow {
  * cover, so on a red sleeve every warm scale collapses into one shade — these
  * are fixed, spaced around the wheel, and used only inside the chart.
  */
-const PERSON_HUES = [162, 268, 38, 200, 330]
-const inkOf = (person: number) => `hsl(${PERSON_HUES[person % PERSON_HUES.length]} 68% 60%)`
+/**
+ * Hues are generated rather than listed so the sixth person to join does not
+ * get the first person's colour — and on the second lap around the wheel they
+ * come back lighter, so a wrap is still tellable apart at nine pixels.
+ */
+const inkOf = (person: number, people: number) => {
+  const spread = Math.max(5, people)
+  const hue = (162 + person * (360 / spread)) % 360
+  const lap = Math.floor(person / spread)
+  return `hsl(${hue} 68% ${60 + lap * 14}%)`
+}
 
 /**
  * Shortest initials that tell everybody apart. Colour alone means looking back
@@ -70,7 +79,7 @@ export function GapChart({
         <div className="gapchart-legend">
           {names.map((name, person) => (
             <span key={name} className="gapchart-who">
-              <span className="gapchart-swatch" style={{ background: inkOf(person) }}>
+              <span className="gapchart-swatch" style={{ background: inkOf(person, names.length) }}>
                 {initials[person]}
               </span>
               {name}
@@ -140,7 +149,7 @@ export function GapChart({
                       style={{
                         left: `${pct(low.at)}%`,
                         width: `${pct(high.at) - pct(low.at)}%`,
-                        background: `linear-gradient(90deg, ${inkOf(low.person)}, ${inkOf(high.person)})`,
+                        background: `linear-gradient(90deg, ${inkOf(low.person, names.length)}, ${inkOf(high.person, names.length)})`,
                       }}
                     />
                   )}
@@ -157,7 +166,7 @@ export function GapChart({
                         <span
                           key={person}
                           className="gapchart-wedge"
-                          style={{ background: inkOf(person) }}
+                          style={{ background: inkOf(person, names.length) }}
                         >
                           {initials[person]}
                         </span>

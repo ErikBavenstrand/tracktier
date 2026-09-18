@@ -62,13 +62,48 @@ describe('comparing rankings', () => {
   })
 
   it('handles more than two people', () => {
-    const { rows, agreement } = compareRankings([
+    const { rows, agreement, pairs } = compareRankings([
       { label: 'A', order: [0, 1, 2] },
       { label: 'B', order: [1, 0, 2] },
       { label: 'C', order: [0, 2, 1] },
     ])
     expect(rows).toHaveLength(3)
-    // Kendall tau is a pairwise measure; three people get no single number.
-    expect(agreement).toBeNull()
+    // Tau is pairwise, but three people are three pairs, so a group still gets
+    // a number — the mean over all of them.
+    expect(pairs).toHaveLength(3)
+    expect(agreement).toBeCloseTo((pairs[0]!.tau + pairs[1]!.tau + pairs[2]!.tau) / 3)
+  })
+
+  it('agrees with plain tau when there are only two people', () => {
+    const a = [0, 1, 2, 3]
+    const b = [1, 0, 3, 2]
+    const { agreement } = compareRankings([
+      { label: 'A', order: a },
+      { label: 'B', order: b },
+    ])
+    expect(agreement).toBeCloseTo(kendallTau(a, b)!)
+  })
+
+  it('ranks the pairs so the closest and furthest can be named', () => {
+    const { pairs } = compareRankings([
+      { label: 'A', order: [0, 1, 2, 3] },
+      { label: 'B', order: [0, 1, 2, 3] },
+      { label: 'C', order: [3, 2, 1, 0] },
+    ])
+    expect(pairs[0]).toMatchObject({ a: 0, b: 1, tau: 1 })
+    expect(pairs[pairs.length - 1]!.tau).toBe(-1)
+  })
+
+  it('lets the agreed-on bar grow with the album', () => {
+    // On a 25-track album a two-place gap is agreement, not an argument; the
+    // old fixed bar of one place made the panel empty out for groups.
+    const order = Array.from({ length: 25 }, (_, i) => i)
+    const nudged = [...order]
+    ;[nudged[10], nudged[12]] = [nudged[12]!, nudged[10]!]
+    const { unanimous } = compareRankings([
+      { label: 'A', order },
+      { label: 'B', order: nudged },
+    ])
+    expect(unanimous).toHaveLength(25)
   })
 })

@@ -1513,6 +1513,43 @@ kbd {
   margin-bottom: 10px;
 }
 
+.hero-lede {
+  margin-top: 14px;
+  max-width: 54ch;
+}
+
+.hero-lede em {
+  color: var(--text);
+  font-style: italic;
+}
+
+.compare-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  border-color: hsl(38 85% 55% / 28%);
+}
+
+.compare-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: hsl(38 90% 66%);
+}
+
+.compare-pairs {
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+
+.compare-pairs strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .compare-keep {
   display: flex;
   align-items: center;

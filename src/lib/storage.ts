@@ -184,7 +184,17 @@ export interface AlbumFacts {
 }
 
 /** Adds one person's ranking of an album, replacing their previous one. */
-export function saveRanking(album: AlbumFacts, ranking: SavedRanking): LibraryAlbum[] {
+export function saveRanking(
+  album: AlbumFacts,
+  ranking: SavedRanking,
+  /**
+   * Bulk imports pass false. A comparison link is a snapshot: the copy of you
+   * inside one somebody sent last week is older than what you hold now, and
+   * nothing in a code says which came first. Replacing on the strength of a
+   * matching author id would quietly swap a newer ranking for an older one.
+   */
+  mayReplace = true,
+): LibraryAlbum[] {
   if (!ranking.label.trim()) return loadLibrary()
 
   const library = loadLibrary()
@@ -192,6 +202,13 @@ export function saveRanking(album: AlbumFacts, ranking: SavedRanking): LibraryAl
     (entry) => entry.provider === album.provider && entry.albumId === album.albumId,
   )
   const held = existing?.rankings ?? []
+  const replacing = held.filter((item) => isSamePerson(item, ranking))
+  // Already exactly this ranking: nothing to do, and nothing to rename.
+  if (replacing.some((item) => item.code === ranking.code)) {
+    if (!mayReplace) return library
+  } else if (!mayReplace && replacing.length > 0) {
+    return library
+  }
   const kept = held.filter((item) => !isSamePerson(item, ranking))
   const rankings = [
     ...kept,

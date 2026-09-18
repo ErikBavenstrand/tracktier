@@ -120,6 +120,13 @@ export function SearchScreen() {
           Settle the album.<br />
           <span className="hero-accent">One track at a time.</span>
         </h1>
+        {/* The only explanation of the product used to live in the library's
+            empty state, which unmounts the moment anyone types. */}
+        <p className="lede hero-lede">
+          Pick an album and answer <em>which of these two is better?</em> about thirty times. You
+          get an S-to-D tier list as a link you can send to anyone — no account, and nothing
+          stored on a server.
+        </p>
       </section>
 
       <div className="search">

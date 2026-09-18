@@ -38,11 +38,15 @@ export function CompareScreen({
       try {
         out.push({ code, ranking: decodeRanking(code) })
       } catch {
-        // A single bad code should not blank the whole comparison.
+        // A single bad code should not blank the whole comparison — but it must
+        // not vanish either. A five-person link runs to hundreds of characters
+        // and chat clients truncate them, so the honest failure is a confident
+        // screen missing three people with no hint anything is absent.
       }
     }
     return out
   }, [codes])
+  const unreadable = codes.length - entries.length
 
   const first = entries[0]?.ranking ?? null
   const { album, loading } = useAlbum(first?.provider ?? null, first?.albumId ?? null)
@@ -56,23 +60,67 @@ export function CompareScreen({
     (raw: string) => {
       const value = raw.trim()
       if (!value) return
-      const code = value.includes('#/r/') ? (value.split('#/r/')[1] ?? '') : value
-      try {
-        const ranking = decodeRanking(code)
-        if (first && (ranking.provider !== first.provider || ranking.albumId !== first.albumId)) {
-          setError('That ranking is for a different album.')
-          return
+
+      // Two people each assembling half a comparison and then merging is the
+      // natural group move, so a comparison link has to be pastable too. It
+      // used to fall through to decodeRanking, where a URL is silently stripped
+      // to garbage and rejected as "truncated or altered" — blaming the sender
+      // for a problem that did not exist.
+      const link = /#\/(r|c)\/([A-Za-z0-9_~-]+)/.exec(value)
+      const incoming = link ? (link[2] ?? '').split('~') : [value]
+
+      const added: string[] = []
+      for (const code of incoming) {
+        try {
+          const ranking = decodeRanking(code)
+          if (first && (ranking.provider !== first.provider || ranking.albumId !== first.albumId)) {
+            setError('That ranking is for a different album.')
+            return
+          }
+          // Same person, newer ranking: replace them rather than seating them
+          // twice. Re-pasting somebody's updated link is how a group keeps a
+          // comparison current, and it used to produce two of them.
+          const replaces =
+            ranking.author === undefined
+              ? -1
+              : [...codes, ...added].findIndex((held) => {
+                  try {
+                    return decodeRanking(held).author === ranking.author
+                  } catch {
+                    return false
+                  }
+                })
+          if (replaces >= 0) {
+            const next = [...codes, ...added]
+            if (next[replaces] === code) continue
+            next[replaces] = code
+            setError(null)
+            setInput('')
+            navigate(hrefCompare(next))
+            return
+          }
+          if (![...codes, ...added].includes(code)) added.push(code)
+        } catch (caught) {
+          if (incoming.length === 1) {
+            setError(
+              caught instanceof ShareCodeError ? caught.message : 'That code could not be read',
+            )
+            return
+          }
         }
-        if (codes.includes(code)) {
-          setError('That ranking is already in the comparison.')
-          return
-        }
-        setError(null)
-        setInput('')
-        navigate(hrefCompare([...codes, code]))
-      } catch (caught) {
-        setError(caught instanceof ShareCodeError ? caught.message : 'That code could not be read')
       }
+
+      if (added.length === 0) {
+        setError(
+          link
+            ? 'Everything in that link is already in this comparison.'
+            : 'That does not look like a tracktour link — paste the whole link your friend sent.',
+        )
+        return
+      }
+      setError(null)
+      setInput('')
+      navigate(hrefCompare([...codes, ...added]))
     },
     [codes, first],
   )
@@ -133,6 +181,7 @@ export function CompareScreen({
           ),
           author: entry.ranking.author,
         },
+        false,
       )
     })
     setLibrary(next)
@@ -212,6 +261,23 @@ export function CompareScreen({
         </div>
       </div>
 
+      {unreadable > 0 && (
+        <p className="compare-warning card">
+          <Icon name="close" size={15} />
+          {unreadable} of the {codes.length} rankings in this link could not be read — a long
+          comparison link is easily cut short on its way through a chat. Ask whoever sent it to
+          send it again.
+        </p>
+      )}
+
+      {entries.length === 1 && (
+        <p className="compare-warning card">
+          <Icon name="users" size={15} />
+          There is only one ranking here, so there is nothing to compare it against yet. Paste a
+          friend&apos;s link below.
+        </p>
+      )}
+
       <section className="compare-keep card">
         <div>
           <h2>
@@ -234,7 +300,7 @@ export function CompareScreen({
         )}
       </section>
 
-      {agreementPct !== null && (
+      {entries.length > 1 && agreementPct !== null && (
         <section className="agreement card">
           <div className="agreement-dial" style={{ '--pct': `${agreementPct}%` } as React.CSSProperties}>
             <strong className="tabular">{agreementPct}%</strong>
@@ -242,25 +308,42 @@ export function CompareScreen({
           </div>
           <div className="agreement-text">
             <h2>
-              {names[0]} and {names[1]}{' '}
+              {names.length === 2 ? `${names[0]} and ${names[1]}` : `All ${names.length} of you`}{' '}
               {agreementPct >= 80
                 ? 'want the same record'
-                : agreementPct >= 60
+                : agreementPct >= 62
                   ? 'mostly agree'
-                  : agreementPct >= 40
-                    ? 'are hearing different albums'
-                    : 'could not disagree more'}
+                  : agreementPct >= 45
+                    ? 'are about as close as strangers'
+                    : agreementPct >= 30
+                      ? 'are hearing different albums'
+                      : 'could not disagree more'}
             </h2>
             <p className="muted">
-              Of every possible pair of tracks, that is how often you both put them the same way
-              round — Kendall&apos;s tau, rescaled so 50% means no relationship at all.
+              Of every possible pair of tracks, that is how often{' '}
+              {names.length === 2 ? `${names[0]} and ${names[1]}` : 'two of you'} put them the same
+              way round
+              {names.length > 2 && `, averaged over all ${analysis.pairs.length} pairs of you`} —
+              Kendall&apos;s tau, rescaled so 50% is what strangers would score.
             </p>
+            {/* With three or more, who is closest to whom is the thing a group
+                actually wants, and it is free once every pair is measured. */}
+            {analysis.pairs.length > 1 && (
+              <p className="compare-pairs faint">
+                Closest: <strong>{names[analysis.pairs[0]!.a]}</strong> and{' '}
+                <strong>{names[analysis.pairs[0]!.b]}</strong> at{' '}
+                {Math.round(((analysis.pairs[0]!.tau + 1) / 2) * 100)}% · Furthest apart:{' '}
+                <strong>{names[analysis.pairs[analysis.pairs.length - 1]!.a]}</strong> and{' '}
+                <strong>{names[analysis.pairs[analysis.pairs.length - 1]!.b]}</strong> at{' '}
+                {Math.round(((analysis.pairs[analysis.pairs.length - 1]!.tau + 1) / 2) * 100)}%
+              </p>
+            )}
           </div>
         </section>
       )}
 
       <div className="compare-columns">
-        {analysis.unanimous.length > 0 && (
+        {entries.length > 1 && analysis.unanimous.length > 0 && (
           <section className="compare-panel card">
             <h2 className="section-title">Agreed on</h2>
             <ul>
@@ -306,14 +389,19 @@ export function CompareScreen({
         tierOfRank={tierOfRank}
       />
 
+      {/* The last step of the whole group flow used to be an unlabelled input
+          under a heading about adding, which read as an echo of what you had
+          just pasted. It is its own card now, and it says what it is for. */}
       <section className="share card">
         <div className="share-head">
           <h2>
-            <Icon name="users" size={17} /> Add another ranking
+            <Icon name="share" size={17} /> Send this back to the group
           </h2>
-          <p className="muted">Paste a friend&apos;s link to fold their verdict in.</p>
+          <p className="muted">
+            One link, all {entries.length} rankings. Everyone who opens it sees exactly this — and
+            can add themselves to it.
+          </p>
         </div>
-        <CodeInput value={input} onChange={setInput} onSubmit={add} error={error} />
         <div className="share-field">
           <input
             type="text"
@@ -323,9 +411,39 @@ export function CompareScreen({
             aria-label="Link to this comparison"
           />
           <CopyButton value={absoluteUrl(hrefCompare(codes))} className="btn btn-primary btn-sm">
-            Copy
+            Copy link
           </CopyButton>
         </div>
+      </section>
+
+      <section className="share card">
+        <div className="share-head">
+          <h2>
+            <Icon name="users" size={17} /> Add another ranking
+          </h2>
+          <p className="muted">
+            Paste a friend&apos;s link — or their whole comparison link — to fold them in. Pasting
+            someone&apos;s newer ranking replaces the one already here.
+          </p>
+        </div>
+        <CodeInput value={input} onChange={setInput} onSubmit={add} error={error} />
+        {suggestions.length > 0 && (
+          <div className="compare-suggestions">
+            <span className="section-title">In your library, not in this comparison</span>
+            <div className="row wrap">
+              {suggestions.map((entry) => (
+                <button
+                  key={entry.key}
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => add(entry.code)}
+                >
+                  {entry.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   )

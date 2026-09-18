@@ -153,6 +153,7 @@
 }
 
 .icon-btn {
+  position: relative;
   display: grid;
   place-items: center;
   width: 34px;
@@ -308,6 +309,7 @@
 }
 
 .tracklist-toggle {
+  position: relative;
   display: grid;
   place-items: center;
   width: 26px;
@@ -337,14 +339,20 @@
 }
 
 @media (max-width: 640px) {
-  .tracklist-title {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
+  /* This is the justification for a struck-through row — "title suggests an
+     interlude", "much shorter than the rest". Hiding it left a phone user with
+     greyed-out tracks and no reason for them. It wraps under the title now. */
+  .tracklist-row {
+    flex-wrap: wrap;
+  }
 
-.tracklist-reason {
-    display: none;
+  .tracklist-reason {
+    /* Last in the flex order and full width, so it takes its own line under
+       the title rather than squeezing the duration off the row. */
+    order: 1;
+    width: 100%;
+    margin-left: 46px;
+    white-space: normal;
   }
 }
 
@@ -1835,6 +1843,61 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   .gapchart-row {
     transition: none;
+  }
+}
+
+/* ================================================= touch and coarse pointers */
+
+/* Nothing may depend on hover: a phone has none, so anything revealed by it is
+   simply missing. There was not one of these rules in the stylesheet. */
+@media (hover: none) {
+  /* The play control on the tracklist sat at opacity 0 until hover, so a phone
+     showed a numbered list with no sign that any of it was playable — right
+     where you would want to sample a track before committing to 40 questions. */
+  .tracklist-icon {
+    opacity: 1;
+  }
+
+  .tracklist-number {
+    opacity: 0;
+  }
+
+  /* Keyboard hints advertise keys this device does not have. */
+  .btn kbd,
+  .duel-pick-key {
+    display: none;
+  }
+}
+
+/* WCAG 2.5.5 asks for 44px. These keep their drawn size and grow the part that
+   actually catches a thumb, so the layout is unchanged. */
+@media (pointer: coarse) {
+  .icon-btn::after,
+  .tracklist-toggle::after,
+  .tracklist-play::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  .tracklist-toggle {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* btn-sm is 36px tall, which is a fine mouse target and a poor thumb one.
+     Raising the minimum rather than the padding leaves dense rows intact. */
+  .btn,
+  .btn-sm {
+    min-height: 44px;
+  }
+
+  .wordmark {
+    min-height: 44px;
   }
 }
 

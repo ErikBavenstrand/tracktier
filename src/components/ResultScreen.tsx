@@ -33,6 +33,14 @@ export type ResultStatus =
   | null
 
 /** How this ranking stands in relation to the library. */
+/**
+ * Most desktop browsers have no share sheet, and the button used to fall back
+ * to a silent clipboard write: you clicked Share, nothing on screen changed,
+ * and a "Copy link" button two inches away did the same job visibly. So it
+ * only appears where it actually does something.
+ */
+const CAN_SHARE = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
 export interface Keeping {
   state: 'saved' | 'yours' | 'imported'
   name: string
@@ -151,20 +159,12 @@ export function ResultScreen({
   }
 
   const share = async () => {
-    if (!shareUrl) return
-    const text = `My ${album.title} tier list`
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: text, url: shareUrl })
-        return
-      } catch {
-        // Cancelled or unsupported; the copy field is still right there.
-      }
-    }
+    if (!shareUrl || !CAN_SHARE) return
     try {
-      await navigator.clipboard.writeText(shareUrl)
+      await navigator.share({ title: `My ${album.title} tier list`, url: shareUrl })
     } catch {
-      /* the input below remains selectable */
+      // Cancelled, or the sheet refused. Either way the copy field is right
+      // there, and silently copying behind a cancelled share would be worse.
     }
   }
 
@@ -460,10 +460,12 @@ export function ResultScreen({
         </div>
 
         <div className="share-actions">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={share}>
-            <Icon name="share" size={15} />
-            Share
-          </button>
+          {CAN_SHARE && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={share}>
+              <Icon name="share" size={15} />
+              Share…
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-ghost btn-sm"

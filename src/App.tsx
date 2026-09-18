@@ -11,7 +11,16 @@ import { EmptyState, Icon } from './components/ui'
 import { useAlbum } from './hooks/useAlbum'
 import { useRankingSession } from './hooks/useRankingSession'
 import { applyPalette, DEFAULT_PALETTE, paletteFromImage, type Palette } from './lib/palette'
-import { hrefAlbum, hrefHome, hrefRank, hrefRanking, navigate, parseRoute, type Route } from './lib/routes'
+import {
+  hrefAlbum,
+  hrefCompare,
+  hrefHome,
+  hrefRank,
+  hrefRanking,
+  navigate,
+  parseRoute,
+  type Route,
+} from './lib/routes'
 import { decodeRanking, encodeRanking, rankingMatchesAlbum, ShareCodeError } from './lib/sharecode'
 import { startRefining } from './lib/sorter'
 import type { ResultStatus } from './components/ResultScreen'
@@ -20,8 +29,10 @@ import {
   hasSkipChoice,
   loadLibrary,
   loadProfile,
+  loadAlbumRankings,
   loadSkipped,
   markSkipChoiceMade,
+  saveAlbumRanking,
   rankingId,
   saveProfile,
   saveSession,
@@ -310,6 +321,16 @@ function RankingRoute({
   )
 
   const [label, setLabel] = useState(() => loadProfile().label)
+
+  // A ranking opened from the album's roster already has a name on it.
+  useEffect(() => {
+    if (!ranking) return
+    const mine = loadAlbumRankings(ranking.provider, ranking.albumId).find(
+      (entry) => entry.code === code,
+    )
+    if (mine) setLabel(mine.label)
+    else if (ranking.label) setLabel((current) => current || ranking.label!)
+  }, [code, ranking])
   // A link already in the library needs no prompt; anything else is someone
   // else's ranking, signed or not, and should be savable.
   const [saved, setSaved] = useState(() => loadLibrary().some((entry) => entry.code === code))
@@ -329,6 +350,42 @@ function RankingRoute({
   // Someone else's shared link must never take over your ratings.
   const session = ranking ? sessionFor(ranking.provider, ranking.albumId) : null
   const ownSession = session && session.code === code ? session : null
+
+  // Bumped whenever a ranking is written, so the roster below re-reads storage.
+  const [savedAt, setSavedAt] = useState(0)
+
+  // Re-read after the name lands, since signing the ranking is what puts it on
+  // the album's roster in the first place.
+  const roster = useMemo(
+    () => (ranking ? loadAlbumRankings(ranking.provider, ranking.albumId) : []),
+    [code, label, ranking, savedAt],
+  )
+
+  // A named ranking joins the album's roster, so it can be found and compared
+  // later without anyone having to keep the original link.
+  useEffect(() => {
+    if (!album || !ranking || !label.trim() || ownSession === null) return
+    try {
+      // Store the code with the name encoded into it. The roster knows whose is
+      // whose, but a comparison is built from the codes alone — and a code
+      // without a name compares as "Listener 2".
+      const signed = encodeRanking(
+        { ...ranking, order, cuts, label: label.trim() },
+        album.title,
+      )
+      saveAlbumRanking(album.provider, album.id, {
+        label: label.trim(),
+        code: signed,
+        order,
+        cuts,
+        savedAt: Date.now(),
+        mine: true,
+      })
+      setSavedAt(Date.now())
+    } catch {
+      // Only albums outside the shareable size range fail to encode.
+    }
+  }, [album, code, cuts, label, order, ownSession, ranking])
 
   const save = useCallback(() => {
     if (!album || !ranking) return
@@ -353,6 +410,16 @@ function RankingRoute({
       updatedAt: Date.now(),
       importedFrom: ranking.label ?? 'a shared link',
     })
+    if (ranking.label) {
+      saveAlbumRanking(album.provider, album.id, {
+        label: ranking.label,
+        code: nextCode,
+        order,
+        cuts,
+        savedAt: Date.now(),
+        mine: false,
+      })
+    }
     setSaved(true)
   }, [album, cuts, label, order, ranking])
 
@@ -465,6 +532,8 @@ function RankingRoute({
         authorLabel={ranking.label}
         onLabelChange={setLabel}
         status={status}
+        saved={roster.map((entry) => ({ label: entry.label, mine: entry.mine }))}
+        onCompare={() => navigate(hrefCompare(roster.map((entry) => entry.code)))}
         onRerank={() => navigate(hrefRank(album.provider, album.id))}
         onBack={() => navigate(hrefHome())}
       />

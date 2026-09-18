@@ -42,6 +42,9 @@ interface Props {
   authorLabel?: string
   onLabelChange?: (label: string) => void
   status?: ResultStatus
+  /** Everyone whose ranking of this album is kept in this browser. */
+  saved?: { label: string; mine: boolean }[]
+  onCompare?: () => void
   onRerank?: () => void
   onBack: () => void
 }
@@ -56,6 +59,8 @@ export function ResultScreen({
   authorLabel,
   onLabelChange,
   status,
+  saved = [],
+  onCompare,
   onRerank,
   onBack,
 }: Props) {
@@ -161,14 +166,15 @@ export function ResultScreen({
           </p>
 
           {!readOnly && onLabelChange && (
-            <label className="name-field">
+            <label className={`name-field ${label.trim() ? '' : 'is-required'}`}>
               <span className="sr-only">Your name on this ranking</span>
               <Icon name="users" size={15} />
               <input
                 type="text"
                 value={label}
-                placeholder="Sign it (optional)"
+                placeholder="Your name"
                 maxLength={24}
+                autoComplete="name"
                 onChange={(event) => onLabelChange(event.target.value)}
               />
             </label>
@@ -221,6 +227,19 @@ export function ResultScreen({
             </button>
           </div>
         </div>
+      )}
+
+      {saved.length > 1 && onCompare && (
+        <button type="button" className="roster-bar card" onClick={onCompare}>
+          <span className="roster-names">
+            <Icon name="users" size={16} />
+            {saved.map((entry) => entry.label).join(' · ')}
+          </span>
+          <span className="roster-cta">
+            Compare {saved.length} rankings
+            <Icon name="arrowRight" size={15} />
+          </span>
+        </button>
       )}
 
       <div className="tiers">
@@ -293,7 +312,19 @@ export function ResultScreen({
         </p>
       )}
 
-      {status?.kind === 'partial' ? (
+      {!readOnly && !label.trim() && status?.kind !== 'partial' ? (
+        <section className="share card">
+          <div className="share-head">
+            <h2>
+              <Icon name="users" size={17} /> Sign it first
+            </h2>
+            <p className="muted">
+              A ranking needs a name before it can be shared or compared — otherwise there is no
+              telling whose it is once two of them sit side by side.
+            </p>
+          </div>
+        </section>
+      ) : status?.kind === 'partial' ? (
         <section className="share card">
           <div className="share-head">
             <h2>

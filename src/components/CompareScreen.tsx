@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAlbum } from '../hooks/useAlbum'
 import { loadLibrary } from '../lib/storage'
 import { absoluteUrl, hrefCompare, navigate } from '../lib/routes'
+import { compareRankings } from '../lib/compare'
 import { decodeRanking, ShareCodeError, type Ranking } from '../lib/sharecode'
-import { DEFAULT_TIERS, naturalBreaks, tierCountFor, tierOfRankFromCuts } from '../lib/tiers'
+import { DEFAULT_TIERS, proportionalCuts, tierOfRankFromCuts } from '../lib/tiers'
 import { RankingSkeleton } from './Skeletons'
 import { Art, CopyButton, EmptyState, Icon } from './ui'
 
@@ -83,35 +84,14 @@ export function CompareScreen({
       .slice(0, 4)
   }, [codes, first])
 
-  const consensus = useMemo(() => {
+  const analysis = useMemo(() => {
     if (entries.length === 0) return null
-    const trackCount = entries[0]!.ranking.order.length
-    const positions = new Map<number, number[]>()
-
-    for (const entry of entries) {
-      if (entry.ranking.order.length !== trackCount) continue
-      entry.ranking.order.forEach((trackIndex, rank) => {
-        const list = positions.get(trackIndex) ?? []
-        list.push(rank)
-        positions.set(trackIndex, list)
-      })
-    }
-
-    // Average rank is a Borda count: robust, and it reads as "where it landed".
-    const rows = [...positions.entries()].map(([trackIndex, ranks]) => {
-      const mean = ranks.reduce((sum, rank) => sum + rank, 0) / ranks.length
-      const spread =
-        ranks.length > 1
-          ? Math.sqrt(ranks.reduce((sum, rank) => sum + (rank - mean) ** 2, 0) / ranks.length)
-          : 0
-      return { trackIndex, mean, spread, ranks }
-    })
-    rows.sort((a, b) => a.mean - b.mean)
-
-    const tierCount = tierCountFor(rows.length)
-    // Natural breaks want higher-is-better, so invert the mean rank.
-    const cuts = naturalBreaks(rows.map((row) => -row.mean), tierCount)
-    return { rows, cuts, tierCount, trackCount }
+    return compareRankings(
+      entries.map((entry, index) => ({
+        label: entry.ranking.label || `Listener ${index + 1}`,
+        order: entry.ranking.order,
+      })),
+    )
   }, [entries])
 
   if (entries.length === 0) {
@@ -145,7 +125,7 @@ export function CompareScreen({
   }
 
   if (loading) return <RankingSkeleton />
-  if (!album || !consensus) {
+  if (!album || !analysis) {
     return (
       <EmptyState icon="close" title="Could not load that album">
         The album behind these rankings is missing from the catalogue.
@@ -153,22 +133,22 @@ export function CompareScreen({
     )
   }
 
-  const tierOfRank = tierOfRankFromCuts(consensus.rows.length, consensus.cuts)
-  const mostDivisive = [...consensus.rows].sort((a, b) => b.spread - a.spread)[0]
-  const voters = entries.map((entry, index) => entry.ranking.label || `Listener ${index + 1}`)
+  const names = entries.map((entry, index) => entry.ranking.label || `Listener ${index + 1}`)
+  const tierOfRank = tierOfRankFromCuts(analysis.rows.length, proportionalCuts(analysis.rows.length))
+  const titleOf = (index: number) => album.tracks[index]?.title ?? 'Unknown track'
+  const agreementPct =
+    analysis.agreement === null ? null : Math.round(((analysis.agreement + 1) / 2) * 100)
 
   return (
     <div className="compare fade-in">
       <div className="result-hero">
         <Art src={album.cover} alt={`${album.title} cover`} className="result-art" />
         <div className="result-hero-text">
-          <span className="section-title">Consensus</span>
+          <span className="section-title">Compared</span>
           <h1 className="display">{album.title}</h1>
-          <p className="muted">
-            {album.artist} · {entries.length} ranking{entries.length === 1 ? '' : 's'} merged
-          </p>
+          <p className="muted">{album.artist}</p>
           <p className="row wrap compare-voters">
-            {voters.map((name) => (
+            {names.map((name) => (
               <span key={name} className="pill">
                 <Icon name="users" size={13} />
                 {name}
@@ -178,26 +158,74 @@ export function CompareScreen({
         </div>
       </div>
 
-      {entries.length > 1 && mostDivisive && mostDivisive.spread > 0.9 && (
-        <p className="compare-divisive card">
-          <Icon name="swap" size={16} />
-          <span>
-            Biggest disagreement:{' '}
-            <strong>{album.tracks[mostDivisive.trackIndex]?.title ?? 'a track'}</strong> — placed
-            anywhere from #{Math.min(...mostDivisive.ranks) + 1} to #
-            {Math.max(...mostDivisive.ranks) + 1}.
-          </span>
-        </p>
+      {agreementPct !== null && (
+        <section className="agreement card">
+          <div className="agreement-dial" style={{ '--pct': `${agreementPct}%` } as React.CSSProperties}>
+            <strong className="tabular">{agreementPct}%</strong>
+            <span className="faint">aligned</span>
+          </div>
+          <div className="agreement-text">
+            <h2>
+              {names[0]} and {names[1]}{' '}
+              {agreementPct >= 80
+                ? 'want the same record'
+                : agreementPct >= 60
+                  ? 'mostly agree'
+                  : agreementPct >= 40
+                    ? 'are hearing different albums'
+                    : 'could not disagree more'}
+            </h2>
+            <p className="muted">
+              Of every possible pair of tracks, that is how often you both put them the same way
+              round — Kendall&apos;s tau, rescaled so 50% means no relationship at all.
+            </p>
+          </div>
+        </section>
       )}
 
+      <div className="compare-columns">
+        {analysis.unanimous.length > 0 && (
+          <section className="compare-panel card">
+            <h2 className="section-title">Agreed on</h2>
+            <ul>
+              {analysis.unanimous.slice(0, 6).map((row) => (
+                <li key={row.trackIndex}>
+                  <span className="compare-pos tabular faint">
+                    #{Math.round(row.mean) + 1}
+                  </span>
+                  <span>{titleOf(row.trackIndex)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {analysis.contested.length > 0 && (
+          <section className="compare-panel card">
+            <h2 className="section-title">Argued about</h2>
+            <ul>
+              {analysis.contested.slice(0, 6).map((row) => (
+                <li key={row.trackIndex}>
+                  <span className="compare-gap tabular">{row.spread}</span>
+                  <span>
+                    {titleOf(row.trackIndex)}
+                    <span className="faint compare-detail">
+                      {row.positions
+                        .map((pos, i) => `${names[i]} #${pos === null ? '—' : pos + 1}`)
+                        .join(' · ')}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
+
+      <h2 className="section-title compare-list-head">Together</h2>
       <ol className="consensus">
-        {consensus.rows.map((row, rank) => {
-          const track = album.tracks[row.trackIndex]
+        {analysis.rows.map((row, rank) => {
           const tier = DEFAULT_TIERS[tierOfRank[rank] ?? 0] ?? DEFAULT_TIERS[0]!
-          // A tight spread means everyone put it in much the same place.
-          const agreement = entries.length > 1
-            ? Math.max(0, 1 - row.spread / Math.max(1, consensus.rows.length / 3))
-            : 1
           return (
             <li key={row.trackIndex} className="consensus-row">
               <span
@@ -207,9 +235,13 @@ export function CompareScreen({
                 {tier.label}
               </span>
               <span className="consensus-rank tabular faint">{rank + 1}</span>
-              <span className="truncate">{track?.title ?? 'Unknown track'}</span>
-              <span className="consensus-agreement" title={`${Math.round(agreement * 100)}% agreement`}>
-                <span style={{ width: `${Math.round(agreement * 100)}%` }} />
+              <span className="consensus-title">{titleOf(row.trackIndex)}</span>
+              <span className="consensus-positions faint tabular">
+                {row.positions.map((pos, i) => (
+                  <span key={names[i]} title={names[i]}>
+                    {pos === null ? '—' : pos + 1}
+                  </span>
+                ))}
               </span>
             </li>
           )
@@ -221,7 +253,7 @@ export function CompareScreen({
           <h2>
             <Icon name="users" size={17} /> Add another ranking
           </h2>
-          <p className="muted">Paste a friend's link to fold their verdict into the consensus.</p>
+          <p className="muted">Paste a friend&apos;s link to fold their verdict in.</p>
         </div>
         <CodeInput value={input} onChange={setInput} onSubmit={add} error={error} />
         <div className="share-field">

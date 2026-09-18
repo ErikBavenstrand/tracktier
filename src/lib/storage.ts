@@ -160,6 +160,62 @@ export function tagSession(code: string): void {
   if (session) saveSession({ ...session, code })
 }
 
+// -------------------------------------------------- rankings, kept per album
+
+const ALBUM_RANKINGS = `${PREFIX}album:rankings:`
+
+export interface AlbumRanking {
+  /** Whose ranking this is. Required, so a comparison always has names on it. */
+  label: string
+  code: string
+  order: number[]
+  cuts: number[]
+  savedAt: number
+  /** False when it arrived through someone else's link. */
+  mine: boolean
+}
+
+const albumKey = (provider: ProviderId, albumId: string) =>
+  `${ALBUM_RANKINGS}${provider}:${albumId}`
+
+/**
+ * Every ranking of one album this browser has seen, yours and your friends'.
+ *
+ * Keeping them against the album rather than in one flat list is what lets the
+ * comparison be opened later without hunting for the original links: whoever
+ * has been ranked here is simply there the next time the album is opened.
+ */
+export function loadAlbumRankings(provider: ProviderId, albumId: string): AlbumRanking[] {
+  return readJson<AlbumRanking[]>(albumKey(provider, albumId), [])
+}
+
+/** Saves under the person's name, replacing their previous attempt. */
+export function saveAlbumRanking(
+  provider: ProviderId,
+  albumId: string,
+  entry: AlbumRanking,
+): AlbumRanking[] {
+  const name = entry.label.trim().toLowerCase()
+  const rest = loadAlbumRankings(provider, albumId).filter(
+    (item) => item.label.trim().toLowerCase() !== name,
+  )
+  const next = [...rest, entry].sort((a, b) => a.savedAt - b.savedAt).slice(-12)
+  safeSet(albumKey(provider, albumId), JSON.stringify(next))
+  return next
+}
+
+export function removeAlbumRanking(
+  provider: ProviderId,
+  albumId: string,
+  label: string,
+): AlbumRanking[] {
+  const next = loadAlbumRankings(provider, albumId).filter(
+    (item) => item.label.trim().toLowerCase() !== label.trim().toLowerCase(),
+  )
+  safeSet(albumKey(provider, albumId), JSON.stringify(next))
+  return next
+}
+
 // ------------------------------------------------------------ skipped tracks
 
 const SKIPPED = `${PREFIX}skipped:`

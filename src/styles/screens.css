@@ -1142,6 +1142,11 @@ kbd {
   max-width: 260px;
 }
 
+.name-field.is-required {
+  border-color: hsl(var(--accent-hsl) / 55%);
+  background: hsl(var(--accent-hsl) / 8%);
+}
+
 .name-field input {
   border: 0;
   background: none;
@@ -1311,7 +1316,7 @@ kbd {
 
 .consensus-row {
   display: grid;
-  grid-template-columns: 34px 26px 1fr 90px;
+  grid-template-columns: 34px 26px 1fr auto;
   align-items: center;
   gap: 14px;
   padding: 9px 14px;
@@ -1439,6 +1444,139 @@ kbd {
 .album-hero-text .sk,
 .result-hero-text .sk {
   margin-block: 2px;
+}
+
+/* -------------------------------------------------- comparing rankings */
+
+.agreement {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+/* The dial reads at a glance; the number is there for anyone who wants it. */
+.agreement-dial {
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) var(--pct), var(--surface-3) 0);
+  position: relative;
+}
+
+.agreement-dial::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.agreement-dial strong,
+.agreement-dial span {
+  position: relative;
+  line-height: 1.1;
+}
+
+.agreement-dial strong {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.agreement-dial span {
+  font-size: 11px;
+}
+
+.agreement-text {
+  flex: 1;
+  min-width: 220px;
+}
+
+.agreement-text h2 {
+  font-size: 19px;
+  margin-bottom: 6px;
+}
+
+.agreement-text p {
+  font-size: 13px;
+  max-width: 58ch;
+}
+
+.compare-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.compare-panel {
+  padding: 16px 18px;
+}
+
+.compare-panel .section-title {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.compare-panel ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 13.5px;
+}
+
+.compare-panel li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.compare-pos,
+.compare-gap {
+  flex-shrink: 0;
+  min-width: 26px;
+  font-size: 11.5px;
+}
+
+.compare-gap {
+  display: inline-grid;
+  place-items: center;
+  height: 20px;
+  padding-inline: 6px;
+  border-radius: 6px;
+  background: hsl(5 70% 52% / 18%);
+  color: hsl(5 75% 70%);
+  font-weight: 700;
+}
+
+.compare-detail {
+  display: block;
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+
+.compare-list-head {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.consensus-title {
+  overflow-wrap: anywhere;
+}
+
+.consensus-positions {
+  display: flex;
+  gap: 8px;
+  font-size: 11.5px;
+  justify-self: end;
 }
 
 /* ============================================================ footer */
@@ -1625,4 +1763,64 @@ kbd {
     grid-template-columns: 30px 22px 1fr 54px;
     gap: 10px;
   }
+}
+
+.attribution {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.attribution-deezer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.attribution-deezer img {
+  height: 16px;
+  width: auto;
+  opacity: 0.85;
+  transition: opacity 150ms var(--ease);
+}
+
+.attribution-deezer:hover img {
+  opacity: 1;
+}
+
+.roster-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 13px 18px;
+  margin-bottom: 14px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-color: hsl(var(--accent-hsl) / 30%);
+  background: linear-gradient(120deg, hsl(var(--accent-hsl) / 8%), var(--surface) 60%);
+  transition: border-color 160ms var(--ease), background 160ms var(--ease);
+}
+
+.roster-bar:hover {
+  border-color: var(--accent);
+}
+
+.roster-names,
+.roster-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+
+.roster-cta {
+  color: var(--accent);
+  font-weight: 700;
 }

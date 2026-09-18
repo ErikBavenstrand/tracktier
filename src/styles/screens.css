@@ -1847,3 +1847,123 @@ kbd {
   color: var(--accent);
   font-weight: 700;
 }
+
+.keep {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-color: hsl(var(--accent-hsl) / 35%);
+  background: linear-gradient(120deg, hsl(var(--accent-hsl) / 10%), var(--surface) 62%);
+}
+
+.keep-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.keep-form input {
+  flex: 1;
+  min-width: 180px;
+  padding: 11px 15px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  font-size: 14px;
+}
+
+.keep-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.saved-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.library-people {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  max-width: 45%;
+}
+
+.library-person {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Yours is marked, so a shelf of names reads at a glance. */
+.library-person.is-mine {
+  border-color: hsl(var(--accent-hsl) / 45%);
+  background: hsl(var(--accent-hsl) / 12%);
+  color: var(--accent);
+}
+
+@media (max-width: 560px) {
+  .library-people {
+    display: none;
+  }
+}
+
+.rankings {
+  margin-bottom: 26px;
+}
+
+.rankings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.rankings-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.rankings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 15px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 13.5px;
+  transition: border-color 150ms var(--ease), background 150ms var(--ease);
+}
+
+.rankings-row:hover {
+  background: var(--surface-2);
+  border-color: hsl(var(--accent-hsl) / 45%);
+}
+
+.rankings-who {
+  font-weight: 600;
+}
+
+.rankings-who.is-mine {
+  color: var(--accent);
+}
+
+.rankings-row .faint {
+  flex: 1;
+  font-size: 12px;
+}

@@ -27,20 +27,21 @@ import type { ResultStatus } from './components/ResultScreen'
 import {
   clearSession,
   hasSkipChoice,
+  isOwnCode,
+  libraryAlbum,
   loadLibrary,
   loadProfile,
-  loadAlbumRankings,
   loadSkipped,
   markSkipChoiceMade,
-  saveAlbumRanking,
-  rankingId,
+  removeRanking,
   saveProfile,
+  saveRanking,
   saveSession,
   saveSkipped,
-  saveToLibrary,
   sessionFor,
   storageAvailable,
   tagSession,
+  type LibraryAlbum,
 } from './lib/storage'
 import { findInterludes } from './lib/interludes'
 import { proportionalCuts } from './lib/tiers'
@@ -195,15 +196,13 @@ function AlbumRoute({
    * find again.
    */
   const persist = useCallback(
-    (complete: boolean): string | null => {
+    (): string | null => {
       if (!album || session.order.length === 0) return null
 
       // A sort yields order, not magnitude, so bands come from proportion.
       const cuts = proportionalCuts(session.order.length)
       const indexOf = new Map(album.tracks.map((track, index) => [track.id, index]))
       const order = session.order.map((id) => indexOf.get(id) ?? 0)
-      const label = loadProfile().label || undefined
-      const id = rankingId(album.provider, album.id)
 
       try {
         const code = encodeRanking(
@@ -213,44 +212,24 @@ function AlbumRoute({
             order,
             trackCount: album.tracks.length,
             cuts,
-            label,
+            label: loadProfile().label || undefined,
           },
           album.title,
         )
+        // The session store already holds the work in progress; the library
+        // only takes rankings once they carry a name.
         tagSession(code)
-        saveToLibrary({
-          id,
-          code,
-          provider: album.provider,
-          albumId: album.id,
-          order,
-          cuts,
-          label,
-          albumTitle: album.title,
-          albumArtist: album.artist,
-          albumCover: album.cover,
-          trackTitles: album.tracks.map((track) => track.title),
-          duels: comparisons,
-          complete,
-          // Keep the moment it was started, not the moment it was last touched.
-          createdAt: loadLibrary().find((entry) => entry.id === id)?.createdAt ?? Date.now(),
-          updatedAt: Date.now(),
-        })
         return code
       } catch {
         // Only albums outside the shareable size range fail to encode.
         return null
       }
     },
-    [album, comparisons, session.order],
+    [album, session.order],
   )
 
-  useEffect(() => {
-    if (comparisons > 0) persist(session.ordered)
-  }, [comparisons, persist, session.ordered])
-
   const finish = useCallback(() => {
-    const code = persist(true)
+    const code = persist()
     if (code) navigate(hrefRanking(code))
   }, [persist])
 
@@ -278,6 +257,8 @@ function AlbumRoute({
     )
   }
 
+  const kept = libraryAlbum(album.provider, album.id)?.rankings ?? []
+
   return (
     <AlbumScreen
       album={album}
@@ -285,12 +266,26 @@ function AlbumRoute({
       onToggle={toggleTrack}
       locked={comparisons > 0}
       comparisonsSoFar={comparisons}
+      rankings={kept}
+      onCompare={() => navigate(hrefCompare(kept.map((entry) => entry.code)))}
       onBack={() => navigate(hrefHome())}
     />
   )
 }
 
-/** A ranking decoded straight out of the URL — yours or somebody else's. */
+/**
+ * A ranking decoded straight out of the URL.
+ *
+ * Three states, told apart before anything is written to storage:
+ *
+ *  - saved — this code is already in the library, under a name.
+ *  - yours — this browser produced it, but it has not been kept yet.
+ *  - imported — it arrived through someone else's link.
+ *
+ * The last is detected from the code alone, so a link works even when the
+ * sender never signed it. Nothing is stored until the button is pressed:
+ * saving on every keystroke of the name box produced a new ranking per letter.
+ */
 function RankingRoute({
   code,
   palette,
@@ -317,108 +312,91 @@ function RankingRoute({
     ranking?.albumId ?? null,
   )
 
-  const [label, setLabel] = useState(() => loadProfile().label)
-
-  // A ranking opened from the album's roster already has a name on it.
-  useEffect(() => {
-    if (!ranking) return
-    const mine = loadAlbumRankings(ranking.provider, ranking.albumId).find(
-      (entry) => entry.code === code,
+  const [library, setLibrary] = useState<LibraryAlbum[]>(loadLibrary)
+  const entry = useMemo(() => {
+    if (!ranking) return null
+    return (
+      library
+        .find((a) => a.provider === ranking.provider && a.albumId === ranking.albumId)
+        ?.rankings.find((item) => item.code === code) ?? null
     )
-    if (mine) setLabel(mine.label)
-    else if (ranking.label) setLabel((current) => current || ranking.label!)
-  }, [code, ranking])
-  // A link already in the library needs no prompt; anything else is someone
-  // else's ranking, signed or not, and should be savable.
-  const [saved, setSaved] = useState(() => loadLibrary().some((entry) => entry.code === code))
+  }, [code, library, ranking])
+
+  const mine = useMemo(
+    () => (ranking ? isOwnCode(ranking.provider, ranking.albumId, code) : false),
+    [code, ranking],
+  )
+
+  const [name, setName] = useState('')
+  useEffect(() => {
+    // Prefer the name it is already filed under, then the sender's, then yours.
+    setName(entry?.label ?? ranking?.label ?? (mine ? loadProfile().label : '') ?? '')
+  }, [code, entry, mine, ranking])
 
   useEffect(() => {
     if (album) onCover(album.cover)
   }, [album, onCover])
 
-  useEffect(() => {
-    setSaved(loadLibrary().some((entry) => entry.code === code))
-  }, [code])
-
   const order = ranking?.order ?? []
   const cuts = ranking?.cuts ?? []
 
-  // Only this browser's own unfinished session may be resumed from this page.
-  // Someone else's shared link must never take over your ratings.
   const session = ranking ? sessionFor(ranking.provider, ranking.albumId) : null
   const ownSession = session && session.code === code ? session : null
 
-  // Bumped whenever a ranking is written, so the roster below re-reads storage.
-  const [savedAt, setSavedAt] = useState(0)
-
-  // Re-read after the name lands, since signing the ranking is what puts it on
-  // the album's roster in the first place.
-  const roster = useMemo(
-    () => (ranking ? loadAlbumRankings(ranking.provider, ranking.albumId) : []),
-    [code, label, ranking, savedAt],
-  )
-
-  // A named ranking joins the album's roster, so it can be found and compared
-  // later without anyone having to keep the original link.
-  useEffect(() => {
-    if (!album || !ranking || !label.trim() || ownSession === null) return
+  /** The one place a ranking is written, and only when asked. */
+  const keep = useCallback(() => {
+    const trimmed = name.trim()
+    if (!album || !ranking || !trimmed) return
     try {
-      // Store the code with the name encoded into it. The roster knows whose is
-      // whose, but a comparison is built from the codes alone — and a code
-      // without a name compares as "Listener 2".
       const signed = encodeRanking(
-        { ...ranking, order, cuts, label: label.trim() },
+        { ...ranking, order, cuts, label: trimmed },
         album.title,
       )
-      saveAlbumRanking(album.provider, album.id, {
-        label: label.trim(),
-        code: signed,
-        order,
-        cuts,
-        savedAt: Date.now(),
-        mine: true,
-      })
-      setSavedAt(Date.now())
+      setLibrary(
+        saveRanking(
+          {
+            provider: album.provider,
+            albumId: album.id,
+            title: album.title,
+            artist: album.artist,
+            cover: album.cover,
+            trackCount: album.tracks.length,
+            trackTitles: album.tracks.map((track) => track.title),
+          },
+          {
+            label: trimmed,
+            code: signed,
+            order,
+            cuts,
+            savedAt: Date.now(),
+            mine,
+          },
+        ),
+      )
+      if (mine) {
+        saveProfile({ label: trimmed })
+        // Signing changes the code, and the session is matched by it. Without
+        // this the ranking loses track of its own sort, and Sharpen and Start
+        // over disappear the moment it is saved.
+        if (ownSession) tagSession(signed)
+      }
+      // The URL now carries the signed code, so sharing it carries the name.
+      // replaceState does not fire hashchange, so the route is told directly —
+      // without it the page keeps rendering against the old, unsigned code and
+      // never notices it has just been saved.
+      if (signed !== code) {
+        window.history.replaceState(null, '', hrefRanking(signed))
+        window.dispatchEvent(new HashChangeEvent('hashchange'))
+      }
     } catch {
-      // Only albums outside the shareable size range fail to encode.
+      /* only albums outside the shareable size range fail to encode */
     }
-  }, [album, code, cuts, label, order, ownSession, ranking])
+  }, [album, cuts, code, mine, name, order, ownSession, ranking])
 
-  const save = useCallback(() => {
-    if (!album || !ranking) return
-    const nextCode = encodeRanking({ ...ranking, order, cuts, label: label || undefined }, album.title)
-    saveProfile({ label })
-    saveToLibrary({
-      id: rankingId(album.provider, album.id, ranking.label),
-      code: nextCode,
-      provider: album.provider,
-      albumId: album.id,
-      order,
-      cuts,
-      label: label || undefined,
-      albumTitle: album.title,
-      albumArtist: album.artist,
-      albumCover: album.cover,
-      trackTitles: album.tracks.map((track) => track.title),
-      // Someone else's ranking arrives finished; none of the duels were ours.
-      duels: 0,
-      complete: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      importedFrom: ranking.label ?? 'a shared link',
-    })
-    if (ranking.label) {
-      saveAlbumRanking(album.provider, album.id, {
-        label: ranking.label,
-        code: nextCode,
-        order,
-        cuts,
-        savedAt: Date.now(),
-        mine: false,
-      })
-    }
-    setSaved(true)
-  }, [album, cuts, label, order, ranking])
+  const forget = useCallback(() => {
+    if (!ranking || !entry) return
+    setLibrary(removeRanking(ranking.provider, ranking.albumId, entry.label))
+  }, [entry, ranking])
 
   if (decoded.error || !ranking) {
     return (
@@ -443,24 +421,28 @@ function RankingRoute({
   const mismatch = !rankingMatchesAlbum({ ...ranking, order }, album)
   const orderedIds = order.map((index) => album.tracks[index]?.id ?? '').filter(Boolean)
 
-  /**
-   * What this page is actually looking at.
-   *
-   * A ranking is not simply open or closed: it can be half-placed, fully
-   * ordered but unchecked, or sorted and checked. Each wants a different thing
-   * said and a different next step offered, and a half-placed one must not
-   * present its unplaced tracks as though they had been ranked.
-   */
-  const sort = ownSession?.sort
-  const toRank = () => navigate(hrefRank(album.provider, album.id))
-  const startOver = () => {
-    clearSession()
-    toRank()
+  if (mismatch || orderedIds.length !== order.length) {
+    return (
+      <EmptyState icon="close" title="This ranking no longer fits the album">
+        The catalogue now lists {album.tracks.length} tracks for {album.title}, but the link ranks{' '}
+        {order.length}. The release was probably replaced with a different edition.
+      </EmptyState>
+    )
   }
 
+  const albumEntry =
+    library.find((a) => a.provider === ranking.provider && a.albumId === ranking.albumId) ?? null
+  const others = albumEntry?.rankings ?? []
+
+  const sort = ownSession?.sort
+  const toRank = () => navigate(hrefRank(album.provider, album.id))
   let status: ResultStatus = null
   if (sort) {
     const ordered = sort.current === null && sort.queue.length === 0
+    const startOver = () => {
+      clearSession()
+      toRank()
+    }
     if (!ordered) {
       status = {
         kind: 'partial',
@@ -476,8 +458,6 @@ function RankingRoute({
         comparisons: sort.comparisons,
         toCheck: Math.max(0, sort.placed.length - 1),
         onSharpen: () => {
-          // Hand the stored sort straight into its checking pass, so returning
-          // to the duel screen resumes mid-sweep rather than at the start.
           saveSession({ ...ownSession!, sort: startRefining(sort) })
           toRank()
         },
@@ -488,52 +468,26 @@ function RankingRoute({
     }
   }
 
-  if (mismatch || orderedIds.length !== order.length) {
-    return (
-      <EmptyState icon="close" title="This ranking no longer fits the album">
-        The catalogue now lists {album.tracks.length} tracks for {album.title}, but the link ranks{' '}
-        {order.length}. The release was probably replaced with a different edition.
-      </EmptyState>
-    )
-  }
-
   return (
-    <>
-      {!saved && (
-        <div className="import-banner card">
-          <div>
-            <strong>{ranking.label ? `${ranking.label}’s ranking` : 'A shared ranking'}</strong>
-            <p className="muted">
-              Nothing is saved until you say so. Keep a copy in this browser, or rank the album
-              yourself and compare the two.
-            </p>
-          </div>
-          <button type="button" className="btn btn-primary btn-sm" onClick={save}>
-            <Icon name="check" size={15} />
-            Save to my library
-          </button>
-        </div>
-      )}
-      {saved && (
-        <p className="pill pill-accent import-saved">
-          <Icon name="check" size={14} /> Saved to this browser
-        </p>
-      )}
-
-      <ResultScreen
-        album={album}
-        order={orderedIds}
-        cuts={cuts}
-        label={label}
-        accent={palette.accent}
-        authorLabel={ranking.label}
-        onLabelChange={setLabel}
-        status={status}
-        saved={roster.map((entry) => ({ label: entry.label, mine: entry.mine }))}
-        onCompare={() => navigate(hrefCompare(roster.map((entry) => entry.code)))}
-        onRerank={() => navigate(hrefRank(album.provider, album.id))}
-        onBack={() => navigate(hrefHome())}
-      />
-    </>
+    <ResultScreen
+      album={album}
+      order={orderedIds}
+      cuts={cuts}
+      accent={palette.accent}
+      status={status}
+      keeping={{
+        state: entry ? 'saved' : mine ? 'yours' : 'imported',
+        name,
+        onName: setName,
+        onKeep: keep,
+        onForget: forget,
+        senderName: ranking.label ?? null,
+      }}
+      others={others.map((item) => ({ label: item.label, mine: item.mine, code: item.code }))}
+      onCompare={() => navigate(hrefCompare(others.map((item) => item.code)))}
+      onRerank={toRank}
+      onBack={() => navigate(hrefHome())}
+    />
   )
 }
+

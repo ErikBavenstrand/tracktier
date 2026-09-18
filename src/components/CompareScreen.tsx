@@ -75,14 +75,19 @@ export function CompareScreen({
     [codes, first],
   )
 
-  // Offer the current browser's own rankings as one-click additions.
-  const suggestions = useMemo(() => {
-    const library = loadLibrary()
-    return library
-      .filter((entry) => entry.code && !codes.includes(entry.code))
-      .filter((entry) => !first || (entry.provider === first.provider && entry.albumId === first.albumId))
-      .slice(0, 4)
-  }, [codes, first])
+  // Offer rankings already in the library for this album.
+  const suggestions = useMemo(
+    () =>
+      loadLibrary()
+        .filter((album) => !first || (album.provider === first.provider && album.albumId === first.albumId))
+        .flatMap((album) =>
+          album.rankings
+            .filter((item) => !codes.includes(item.code))
+            .map((item) => ({ key: `${album.albumId}:${item.label}`, label: item.label, code: item.code })),
+        )
+        .slice(0, 5),
+    [codes, first],
+  )
 
   const analysis = useMemo(() => {
     if (entries.length === 0) return null
@@ -105,16 +110,16 @@ export function CompareScreen({
         <CodeInput value={input} onChange={setInput} onSubmit={add} error={error} />
         {suggestions.length > 0 && (
           <div className="compare-suggestions">
-            <span className="section-title">Start from yours</span>
+            <span className="section-title">Already in your library</span>
             <div className="row wrap">
               {suggestions.map((entry) => (
                 <button
-                  key={entry.id}
+                  key={entry.key}
                   type="button"
                   className="btn btn-ghost btn-sm"
                   onClick={() => add(entry.code)}
                 >
-                  {entry.albumTitle}
+                  {entry.label}
                 </button>
               ))}
             </div>

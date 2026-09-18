@@ -8,8 +8,8 @@ import {
   type MergedResult,
 } from '../lib/providers'
 import { fetchOEmbed, parseSpotifyUrl } from '../lib/providers/spotify'
-import { hrefAlbum, hrefRanking, navigate } from '../lib/routes'
-import { loadLibrary, removeFromLibrary, type SavedRanking } from '../lib/storage'
+import { hrefAlbum, navigate } from '../lib/routes'
+import { loadLibrary, removeAlbum, type LibraryAlbum } from '../lib/storage'
 import { AlbumGridSkeleton } from './Skeletons'
 import { Art, EmptyState, Icon, Spinner } from './ui'
 
@@ -22,7 +22,7 @@ type Status =
 export function SearchScreen() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
-  const [library, setLibrary] = useState<SavedRanking[]>(() => loadLibrary())
+  const [library, setLibrary] = useState<LibraryAlbum[]>(loadLibrary)
   const controller = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -186,44 +186,42 @@ export function SearchScreen() {
       {status.kind === 'idle' && (
         <section className="library">
           <div className="library-head">
-            <h2 className="section-title">Your rankings</h2>
-            {library.length > 1 && (
-              <a className="btn btn-ghost btn-sm" href="#/c/">
-                <Icon name="users" size={15} />
-                Compare
-              </a>
-            )}
+            <h2 className="section-title">Your albums</h2>
           </div>
 
           {library.length === 0 ? (
             <EmptyState icon="trophy" title="Nothing ranked yet">
-              Find an album above and start duelling its tracks. Everything you rank is kept in this
-              browser only.
+              Find an album above and start comparing its tracks. Everything you rank is kept in
+              this browser only.
             </EmptyState>
           ) : (
             <ul className="library-list">
               {library.map((entry) => (
-                <li key={entry.id} className="library-item">
-                  <a className="library-link" href={hrefRanking(entry.code)}>
-                    <Art src={entry.albumCover} alt="" size={52} />
+                <li key={`${entry.provider}:${entry.albumId}`} className="library-item">
+                  <a className="library-link" href={hrefAlbum(entry.provider, entry.albumId)}>
+                    <Art src={entry.cover} alt="" size={52} />
                     <span className="col truncate">
-                      <strong className="truncate">{entry.albumTitle}</strong>
-                      <span className="faint truncate">
-                        {entry.albumArtist}
-                        {entry.importedFrom && ' · imported'}
-                      </span>
+                      <strong className="truncate">{entry.title}</strong>
+                      <span className="faint truncate">{entry.artist}</span>
                     </span>
-                    {!entry.complete && (
-                      <span className="pill pill-accent library-progress">
-                        {entry.duels} question{entry.duels === 1 ? '' : 's'} in
-                      </span>
-                    )}
+                    {/* Who has ranked it is the useful thing at a glance. */}
+                    <span className="library-people">
+                      {entry.rankings.map((item) => (
+                        <span
+                          key={item.label}
+                          className={`library-person ${item.mine ? 'is-mine' : ''}`}
+                          title={item.mine ? `${item.label} (yours)` : item.label}
+                        >
+                          {item.label}
+                        </span>
+                      ))}
+                    </span>
                   </a>
                   <button
                     type="button"
                     className="icon-btn"
-                    aria-label={`Remove ${entry.albumTitle}`}
-                    onClick={() => setLibrary(removeFromLibrary(entry.id))}
+                    aria-label={`Remove all rankings of ${entry.title}`}
+                    onClick={() => setLibrary(removeAlbum(entry.provider, entry.albumId))}
                   >
                     <Icon name="trash" size={16} />
                   </button>

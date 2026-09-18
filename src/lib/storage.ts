@@ -1,6 +1,5 @@
 import type { Album, ProviderId } from './providers/types'
 import type { SortState } from './sorter'
-import type { Ranking } from './sharecode'
 
 /**
  * Everything persists in the browser. There is no server, no account and no
@@ -90,41 +89,137 @@ export function readStaleAlbum(provider: ProviderId, id: string): Album | null {
 
 // -------------------------------------------------------------------- library
 
-export interface SavedRanking extends Ranking {
-  id: string
-  /** The encoded ranking, kept so the library can link straight to it. */
+/**
+ * One person's ranking of one album.
+ *
+ * `label` is required: a ranking nobody can name is one nobody can compare.
+ * `mine` separates what was ranked in this browser from what arrived through
+ * someone else's link, which is the distinction the import flow turns on.
+ */
+export interface SavedRanking {
+  label: string
   code: string
-  albumTitle: string
-  albumArtist: string
-  albumCover: string | null
+  order: number[]
+  cuts: number[]
+  savedAt: number
+  mine: boolean
+}
+
+/**
+ * An album, with every ranking of it this browser holds.
+ *
+ * Albums are the unit rather than rankings because that is how they are read:
+ * you want to know who has ranked Nevermind, not to scroll a flat list where
+ * your copy and a friend's sit apart. It also removes the second store this
+ * replaced, where the same ranking lived in two places under two shapes.
+ */
+export interface LibraryAlbum {
+  provider: ProviderId
+  albumId: string
+  title: string
+  artist: string
+  cover: string | null
+  trackCount: number
   trackTitles: string[]
-  /** Duels behind this ranking; 0 for one arriving through someone's link. */
-  duels: number
-  /** False while the ranking is still being duelled out. */
-  complete: boolean
-  createdAt: number
   updatedAt: number
-  /** Set when this came in through someone else's link rather than being ranked here. */
-  importedFrom?: string
+  rankings: SavedRanking[]
 }
 
-export const loadLibrary = (): SavedRanking[] => readJson<SavedRanking[]>(KEY_LIBRARY, [])
+export const loadLibrary = (): LibraryAlbum[] =>
+  readJson<LibraryAlbum[]>(KEY_LIBRARY, []).filter((entry) => entry?.rankings?.length)
 
-export function saveToLibrary(entry: SavedRanking): SavedRanking[] {
-  const library = loadLibrary().filter((item) => item.id !== entry.id)
-  const next = [entry, ...library].slice(0, 200)
+export function libraryAlbum(provider: ProviderId, albumId: string): LibraryAlbum | null {
+  return (
+    loadLibrary().find(
+      (entry) => entry.provider === provider && entry.albumId === albumId,
+    ) ?? null
+  )
+}
+
+export interface AlbumFacts {
+  provider: ProviderId
+  albumId: string
+  title: string
+  artist: string
+  cover: string | null
+  trackCount: number
+  trackTitles: string[]
+}
+
+/** Adds or replaces one person's ranking of an album, keyed by their name. */
+export function saveRanking(album: AlbumFacts, ranking: SavedRanking): LibraryAlbum[] {
+  const name = ranking.label.trim().toLowerCase()
+  if (!name) return loadLibrary()
+
+  const library = loadLibrary()
+  const existing = library.find(
+    (entry) => entry.provider === album.provider && entry.albumId === album.albumId,
+  )
+  const rankings = [
+    ...(existing?.rankings ?? []).filter((item) => item.label.trim().toLowerCase() !== name),
+    ranking,
+  ].sort((a, b) => a.savedAt - b.savedAt)
+
+  const updated: LibraryAlbum = { ...album, updatedAt: Date.now(), rankings }
+  const next = [
+    updated,
+    ...library.filter(
+      (entry) => !(entry.provider === album.provider && entry.albumId === album.albumId),
+    ),
+  ].slice(0, 60)
+
   safeSet(KEY_LIBRARY, JSON.stringify(next))
   return next
 }
 
-export function removeFromLibrary(id: string): SavedRanking[] {
-  const next = loadLibrary().filter((item) => item.id !== id)
+export function removeRanking(
+  provider: ProviderId,
+  albumId: string,
+  label: string,
+): LibraryAlbum[] {
+  const name = label.trim().toLowerCase()
+  const next = loadLibrary()
+    .map((entry) =>
+      entry.provider === provider && entry.albumId === albumId
+        ? {
+            ...entry,
+            rankings: entry.rankings.filter(
+              (item) => item.label.trim().toLowerCase() !== name,
+            ),
+          }
+        : entry,
+    )
+    .filter((entry) => entry.rankings.length > 0)
   safeSet(KEY_LIBRARY, JSON.stringify(next))
   return next
 }
 
-export const rankingId = (provider: ProviderId, albumId: string, label?: string) =>
-  `${provider}:${albumId}${label ? `:${label}` : ''}`
+export function removeAlbum(provider: ProviderId, albumId: string): LibraryAlbum[] {
+  const next = loadLibrary().filter(
+    (entry) => !(entry.provider === provider && entry.albumId === albumId),
+  )
+  safeSet(KEY_LIBRARY, JSON.stringify(next))
+  return next
+}
+
+/**
+ * Whether this browser produced a given ranking.
+ *
+ * This is what tells an imported link from your own, and it works without a
+ * name on it: a code either matches something ranked here or it came from
+ * outside. Anything external is offered for import rather than silently kept.
+ */
+export function isOwnCode(provider: ProviderId, albumId: string, code: string): boolean {
+  const album = libraryAlbum(provider, albumId)
+  if (album?.rankings.some((item) => item.code === code && item.mine)) return true
+  const session = loadSession()
+  return Boolean(
+    session &&
+      session.provider === provider &&
+      session.albumId === albumId &&
+      session.code === code,
+  )
+}
 
 // ------------------------------------------------------------ in-flight session
 
@@ -158,62 +253,6 @@ export const clearSession = (): void => safeRemove(KEY_SESSION)
 export function tagSession(code: string): void {
   const session = loadSession()
   if (session) saveSession({ ...session, code })
-}
-
-// -------------------------------------------------- rankings, kept per album
-
-const ALBUM_RANKINGS = `${PREFIX}album:rankings:`
-
-export interface AlbumRanking {
-  /** Whose ranking this is. Required, so a comparison always has names on it. */
-  label: string
-  code: string
-  order: number[]
-  cuts: number[]
-  savedAt: number
-  /** False when it arrived through someone else's link. */
-  mine: boolean
-}
-
-const albumKey = (provider: ProviderId, albumId: string) =>
-  `${ALBUM_RANKINGS}${provider}:${albumId}`
-
-/**
- * Every ranking of one album this browser has seen, yours and your friends'.
- *
- * Keeping them against the album rather than in one flat list is what lets the
- * comparison be opened later without hunting for the original links: whoever
- * has been ranked here is simply there the next time the album is opened.
- */
-export function loadAlbumRankings(provider: ProviderId, albumId: string): AlbumRanking[] {
-  return readJson<AlbumRanking[]>(albumKey(provider, albumId), [])
-}
-
-/** Saves under the person's name, replacing their previous attempt. */
-export function saveAlbumRanking(
-  provider: ProviderId,
-  albumId: string,
-  entry: AlbumRanking,
-): AlbumRanking[] {
-  const name = entry.label.trim().toLowerCase()
-  const rest = loadAlbumRankings(provider, albumId).filter(
-    (item) => item.label.trim().toLowerCase() !== name,
-  )
-  const next = [...rest, entry].sort((a, b) => a.savedAt - b.savedAt).slice(-12)
-  safeSet(albumKey(provider, albumId), JSON.stringify(next))
-  return next
-}
-
-export function removeAlbumRanking(
-  provider: ProviderId,
-  albumId: string,
-  label: string,
-): AlbumRanking[] {
-  const next = loadAlbumRankings(provider, albumId).filter(
-    (item) => item.label.trim().toLowerCase() !== label.trim().toLowerCase(),
-  )
-  safeSet(albumKey(provider, albumId), JSON.stringify(next))
-  return next
 }
 
 // ------------------------------------------------------------ skipped tracks

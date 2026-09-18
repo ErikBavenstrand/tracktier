@@ -32,18 +32,26 @@ export type ResultStatus =
   | { kind: 'refined'; comparisons: number; onStartOver: () => void }
   | null
 
+/** How this ranking stands in relation to the library. */
+export interface Keeping {
+  state: 'saved' | 'yours' | 'imported'
+  name: string
+  onName: (name: string) => void
+  onKeep: () => void
+  onForget: () => void
+  /** The name the sender signed it with, if any. */
+  senderName: string | null
+}
+
 interface Props {
   album: Album
   order: string[]
   cuts: number[]
-  label: string
   accent: string
-  readOnly?: boolean
-  authorLabel?: string
-  onLabelChange?: (label: string) => void
   status?: ResultStatus
+  keeping: Keeping
   /** Everyone whose ranking of this album is kept in this browser. */
-  saved?: { label: string; mine: boolean }[]
+  others?: { label: string; mine: boolean; code: string }[]
   onCompare?: () => void
   onRerank?: () => void
   onBack: () => void
@@ -53,13 +61,10 @@ export function ResultScreen({
   album,
   order,
   cuts,
-  label,
   accent,
-  readOnly = false,
-  authorLabel,
-  onLabelChange,
   status,
-  saved = [],
+  keeping,
+  others = [],
   onCompare,
   onRerank,
   onBack,
@@ -98,13 +103,20 @@ export function ResultScreen({
   const shareCode = useMemo(() => {
     try {
       return encodeRanking(
-        { provider: album.provider, albumId: album.id, order: orderToIndices(order, album), cuts, label: label || undefined },
+        {
+          provider: album.provider,
+          albumId: album.id,
+          order: orderToIndices(order, album),
+          trackCount: album.tracks.length,
+          cuts,
+          label: keeping.name.trim() || undefined,
+        },
         album.title,
       )
     } catch {
       return null
     }
-  }, [album, cuts, label, order])
+  }, [album, cuts, keeping.name, order])
 
   const shareUrl = shareCode ? absoluteUrl(hrefRanking(shareCode)) : ''
 
@@ -118,7 +130,7 @@ export function ResultScreen({
         albumArtist: album.artist,
         albumCover: album.cover,
         tiers: groups.map((ranks) => ranks.map((rank) => trackOf(order[rank] ?? '')?.title ?? '')),
-        label: label || authorLabel,
+        label: keeping.name.trim() || undefined,
         accent,
         footer: 'Made with Tracktour',
       })
@@ -165,21 +177,12 @@ export function ResultScreen({
             {album.year && <> · {album.year}</>} · {album.tracks.length} tracks
           </p>
 
-          {!readOnly && onLabelChange && (
-            <label className={`name-field ${label.trim() ? '' : 'is-required'}`}>
-              <span className="sr-only">Your name on this ranking</span>
-              <Icon name="users" size={15} />
-              <input
-                type="text"
-                value={label}
-                placeholder="Your name"
-                maxLength={24}
-                autoComplete="name"
-                onChange={(event) => onLabelChange(event.target.value)}
-              />
-            </label>
+          {keeping.state === 'saved' && (
+            <p className="pill pill-accent">
+              <Icon name="check" size={13} />
+              Saved as {keeping.name}
+            </p>
           )}
-          {readOnly && authorLabel && <p className="pill pill-accent">Ranked by {authorLabel}</p>}
         </div>
       </div>
 
@@ -229,14 +232,14 @@ export function ResultScreen({
         </div>
       )}
 
-      {saved.length > 1 && onCompare && (
+      {others.length > 1 && onCompare && (
         <button type="button" className="roster-bar card" onClick={onCompare}>
           <span className="roster-names">
             <Icon name="users" size={16} />
-            {saved.map((entry) => entry.label).join(' · ')}
+            {others.map((entry) => entry.label).join(' · ')}
           </span>
           <span className="roster-cta">
-            Compare {saved.length} rankings
+            Compare {others.length} rankings
             <Icon name="arrowRight" size={15} />
           </span>
         </button>
@@ -305,6 +308,18 @@ export function ResultScreen({
       )}
 
 
+      {keeping.state === 'saved' && (
+        <p className="saved-line">
+          <span className="pill pill-accent">
+            <Icon name="check" size={13} /> Saved as {keeping.name}
+          </span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={keeping.onForget}>
+            <Icon name="trash" size={14} />
+            Remove
+          </button>
+        </p>
+      )}
+
       {status?.kind === 'refined' && (
         <p className="pill pill-accent result-done">
           <Icon name="check" size={14} />
@@ -312,17 +327,42 @@ export function ResultScreen({
         </p>
       )}
 
-      {!readOnly && !label.trim() && status?.kind !== 'partial' ? (
-        <section className="share card">
+      {keeping.state !== 'saved' && status?.kind !== 'partial' ? (
+        <section className="keep card">
           <div className="share-head">
             <h2>
-              <Icon name="users" size={17} /> Sign it first
+              <Icon name={keeping.state === 'imported' ? 'link' : 'users'} size={17} />
+              {keeping.state === 'imported' ? 'A ranking from a link' : 'Keep this ranking'}
             </h2>
             <p className="muted">
-              A ranking needs a name before it can be shared or compared — otherwise there is no
-              telling whose it is once two of them sit side by side.
+              {keeping.state === 'imported'
+                ? keeping.senderName
+                  ? `${keeping.senderName} shared this. Add it to your library to compare it against yours.`
+                  : 'This came from someone else and is not saved anywhere yet. Give it a name so you can tell it apart from yours.'
+                : 'Name it to keep it. Without one there is no telling whose is whose once two sit side by side.'}
             </p>
           </div>
+          <form
+            className="keep-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              keeping.onKeep()
+            }}
+          >
+            <input
+              type="text"
+              value={keeping.name}
+              placeholder={keeping.state === 'imported' ? 'Whose ranking is this?' : 'Your name'}
+              maxLength={24}
+              autoComplete="name"
+              aria-label="Name for this ranking"
+              onChange={(event) => keeping.onName(event.target.value)}
+            />
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!keeping.name.trim()}>
+              <Icon name="check" size={15} />
+              {keeping.state === 'imported' ? 'Import' : 'Save'}
+            </button>
+          </form>
         </section>
       ) : status?.kind === 'partial' ? (
         <section className="share card">

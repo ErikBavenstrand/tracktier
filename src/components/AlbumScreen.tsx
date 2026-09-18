@@ -5,6 +5,8 @@ import type { Album } from '../lib/providers/types'
 import { spotifySearchUrl } from '../lib/providers/spotify'
 import { hrefRank, navigate } from '../lib/routes'
 import { estimateTotal, theoreticalMinimum } from '../lib/sorter'
+import { hrefRanking } from '../lib/routes'
+import type { SavedRanking } from '../lib/storage'
 import { usePlayer } from '../hooks/usePlayer'
 import { Art, Icon, formatDuration } from './ui'
 
@@ -15,6 +17,9 @@ interface Props {
   /** Editing the set mid-sort would invalidate the placements already made. */
   locked: boolean
   comparisonsSoFar: number
+  /** Everyone whose ranking of this album is kept in this browser. */
+  rankings: SavedRanking[]
+  onCompare: () => void
   onBack: () => void
 }
 
@@ -24,6 +29,8 @@ export function AlbumScreen({
   onToggle,
   locked,
   comparisonsSoFar,
+  rankings,
+  onCompare,
   onBack,
 }: Props) {
   const playerState = usePlayer()
@@ -101,6 +108,35 @@ export function AlbumScreen({
           )}
         </div>
       </div>
+
+      {rankings.length > 0 && (
+        <section className="rankings">
+          <div className="rankings-head">
+            <h2 className="section-title">
+              {rankings.length} ranking{rankings.length === 1 ? '' : 's'} of this album
+            </h2>
+            {rankings.length > 1 && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={onCompare}>
+                <Icon name="users" size={15} />
+                Compare all
+              </button>
+            )}
+          </div>
+          <ul className="rankings-list">
+            {rankings.map((entry) => (
+              <li key={entry.label}>
+                <a className="rankings-row" href={hrefRanking(entry.code)}>
+                  <span className={`rankings-who ${entry.mine ? 'is-mine' : ''}`}>
+                    {entry.label}
+                  </span>
+                  <span className="faint">{entry.mine ? 'ranked here' : 'from a link'}</span>
+                  <Icon name="arrowRight" size={15} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <ol className="tracklist">
         {album.tracks.map((track) => {

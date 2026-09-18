@@ -4,7 +4,6 @@ import { loadLibrary } from '../lib/storage'
 import { absoluteUrl, hrefCompare, navigate } from '../lib/routes'
 import { decodeRanking, ShareCodeError, type Ranking } from '../lib/sharecode'
 import { DEFAULT_TIERS, naturalBreaks, tierCountFor, tierOfRankFromCuts } from '../lib/tiers'
-import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { RankingSkeleton } from './Skeletons'
 import { Art, CopyButton, EmptyState, Icon } from './ui'
 
@@ -49,8 +48,6 @@ export function CompareScreen({
   useEffect(() => {
     if (album) onCover(album.cover)
   }, [album, onCover])
-
-  useDocumentTitle(album ? `${album.title} consensus` : 'Compare rankings')
 
   const add = useCallback(
     (raw: string) => {

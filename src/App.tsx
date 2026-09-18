@@ -8,7 +8,6 @@ import { TractorLogo } from './components/TractorLogo'
 import { AlbumScreenSkeleton, DuelSkeleton, RankingSkeleton } from './components/Skeletons'
 import { EmptyState, Icon } from './components/ui'
 import { useAlbum } from './hooks/useAlbum'
-import { useDocumentTitle } from './hooks/useDocumentTitle'
 import { useRankingSession } from './hooks/useRankingSession'
 import { applyPalette, DEFAULT_PALETTE, paletteFromImage, type Palette } from './lib/palette'
 import { hrefAlbum, hrefHome, hrefRank, hrefRanking, navigate, parseRoute, type Route } from './lib/routes'
@@ -107,10 +106,6 @@ function AlbumRoute({
 }) {
   const { album, loading, error, retry } = useAlbum(route.provider, route.id)
   const session = useRankingSession(album)
-
-  useDocumentTitle(
-    album ? (route.name === 'rank' ? `Ranking ${album.title}` : album.title) : null,
-  )
 
   useEffect(() => {
     if (album) onCover(album.cover)
@@ -232,8 +227,6 @@ function RankingRoute({
     ranking?.provider ?? null,
     ranking?.albumId ?? null,
   )
-
-  useDocumentTitle(album ? `${album.title} tier list` : null)
 
   const [label, setLabel] = useState(() => loadProfile().label)
   // A link already in the library needs no prompt; anything else is someone

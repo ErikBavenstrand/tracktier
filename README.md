@@ -36,6 +36,14 @@ neighbouring pair costs n−1 questions and is exactly where a displaced track
 surfaces: on a 20-track album that took total displacement from 11.8 to 0.8.
 Offered once the order exists, never forced.
 
+**Skits are proposed for removal, not filtered.** No catalogue marks them —
+Deezer types every entry as `track`, and popularity rank is no help, with The
+College Dropout's skits scoring 320–404k against real tracks at 325–576k. So it
+is inferred from the title and from length relative to the album's own median.
+An absolute cut cannot work: Napalm Death's *Scum* has a median of 66 seconds.
+The guess still misfires — "Her Majesty" is 25 seconds and entirely a song —
+so suggestions start excluded and any track goes back with one tap.
+
 **Tiers come from proportion.** A sort learns order and nothing about the
 distance between neighbours, so bands are shares of the list rather than natural
 breaks — a real cost of asking the minimum number of questions.

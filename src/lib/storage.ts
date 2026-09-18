@@ -160,6 +160,33 @@ export function tagSession(code: string): void {
   if (session) saveSession({ ...session, code })
 }
 
+// ------------------------------------------------------------ skipped tracks
+
+const SKIPPED = `${PREFIX}skipped:`
+
+/** Track ids the listener chose to leave out of an album's ranking. */
+export function loadSkipped(provider: ProviderId, albumId: string): string[] {
+  return readJson<string[]>(`${SKIPPED}${provider}:${albumId}`, [])
+}
+
+export function saveSkipped(provider: ProviderId, albumId: string, ids: string[]): void {
+  if (ids.length === 0) {
+    safeRemove(`${SKIPPED}${provider}:${albumId}`)
+    return
+  }
+  safeSet(`${SKIPPED}${provider}:${albumId}`, JSON.stringify(ids))
+}
+
+/** Distinguishes "chose to keep everything" from "never opened this album". */
+export function hasSkipChoice(provider: ProviderId, albumId: string): boolean {
+  return safeGet(`${SKIPPED}${provider}:${albumId}`) !== null ||
+    safeGet(`${SKIPPED}${provider}:${albumId}:none`) !== null
+}
+
+export function markSkipChoiceMade(provider: ProviderId, albumId: string): void {
+  safeSet(`${SKIPPED}${provider}:${albumId}:none`, '1')
+}
+
 // -------------------------------------------------------------------- profile
 
 export interface Profile {

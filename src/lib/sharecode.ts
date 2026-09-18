@@ -15,7 +15,7 @@ import type { ProviderId } from './providers/types'
  * unobservable by the host.
  */
 
-const VERSION = 1
+const VERSION = 2
 const MAX_TRACKS = 63
 const MAX_LABEL_BYTES = 40
 
@@ -24,8 +24,15 @@ const PROVIDER_CODES: ProviderId[] = ['deezer', 'itunes', 'spotify']
 export interface Ranking {
   provider: ProviderId
   albumId: string
-  /** Original album track indices, best first. */
+  /** Original album track indices, best first. May be a subset of the album. */
   order: number[]
+  /**
+   * Tracks on the album, which is not always how many were ranked: skipping
+   * skits means the indices above run past `order.length`, so their bit width
+   * has to be derived from the album instead. Absent on v1 codes, where every
+   * track was always ranked.
+   */
+  trackCount?: number
   /** Rank index where each tier after the first begins. */
   cuts: number[]
   /** Optional display name for whoever made the ranking. */
@@ -53,6 +60,11 @@ export function encodeRanking(ranking: Ranking, albumTitle?: string): string {
   const providerCode = PROVIDER_CODES.indexOf(provider)
   if (providerCode < 0) throw new ShareCodeError(`Unknown provider: ${provider}`)
 
+  const trackCount = Math.max(ranking.trackCount ?? n, n)
+  if (trackCount > MAX_TRACKS) {
+    throw new ShareCodeError(`Cannot share an album with ${trackCount} tracks`)
+  }
+
   const labelBytes = label
     ? new TextEncoder().encode(label).slice(0, MAX_LABEL_BYTES)
     : new Uint8Array(0)
@@ -68,6 +80,7 @@ export function encodeRanking(ranking: Ranking, albumTitle?: string): string {
   writer.write(numeric ? 1 : 0, 1)
   writer.write(labelBytes.length > 0 ? 1 : 0, 1)
   writer.write(n, 6)
+  writer.write(trackCount, 6)
   writer.write(cuts.length, 3)
   writer.write(titleHash, 8)
 
@@ -81,9 +94,11 @@ export function encodeRanking(ranking: Ranking, albumTitle?: string): string {
   }
 
   // Track indices at each rank, then the tier boundaries over those ranks.
-  const indexWidth = bitsFor(n - 1)
+  const indexWidth = bitsFor(trackCount - 1)
   for (const index of order) {
-    if (index < 0 || index >= n) throw new ShareCodeError('Ranking references a track outside the album')
+    if (index < 0 || index >= trackCount) {
+      throw new ShareCodeError('Ranking references a track outside the album')
+    }
     writer.write(index, indexWidth)
   }
   const cutWidth = bitsFor(n)
@@ -121,7 +136,7 @@ export function decodeRanking(code: string): Ranking {
   const reader = new BitReader(body)
   try {
     const version = reader.read(4)
-    if (version !== VERSION) {
+    if (version < 1 || version > VERSION) {
       throw new ShareCodeError(`This link was made by a newer version (v${version})`)
     }
     const provider = PROVIDER_CODES[reader.read(3)]
@@ -130,15 +145,18 @@ export function decodeRanking(code: string): Ranking {
     const numeric = reader.read(1) === 1
     const hasLabel = reader.read(1) === 1
     const n = reader.read(6)
+    // v1 predates skipping tracks, so every album track was in the ranking.
+    const trackCount = version >= 2 ? reader.read(6) : n
     const cutCount = reader.read(3)
     const titleHash = reader.read(8)
     if (n === 0) throw new ShareCodeError('That ranking has no tracks')
+    if (trackCount < n) throw new ShareCodeError('That ranking code is corrupt')
 
     const albumId = numeric
       ? String(reader.read(20) * 2 ** 20 + reader.read(20))
       : new TextDecoder().decode(reader.readBytes(reader.read(8)))
 
-    const indexWidth = bitsFor(n - 1)
+    const indexWidth = bitsFor(trackCount - 1)
     const order: number[] = []
     for (let i = 0; i < n; i++) order.push(reader.read(indexWidth))
 
@@ -150,13 +168,14 @@ export function decodeRanking(code: string): Ranking {
       ? new TextDecoder().decode(reader.readBytes(reader.read(6)))
       : undefined
 
-    // A valid ranking is a permutation; anything else means a corrupt code.
+    // Positions must be distinct and inside the album, though not all of them
+    // need to appear: a ranking that skipped the skits is a subset.
     const seen = new Set(order)
-    if (seen.size !== n || order.some((i) => i >= n)) {
+    if (seen.size !== n || order.some((i) => i >= trackCount)) {
       throw new ShareCodeError('That ranking code is corrupt')
     }
 
-    return { provider, albumId, order, cuts, label, titleHash }
+    return { provider, albumId, order, trackCount, cuts, label, titleHash }
   } catch (error) {
     if (error instanceof ShareCodeError) throw error
     throw new ShareCodeError('That ranking code could not be read')
@@ -168,7 +187,11 @@ export function rankingMatchesAlbum(
   ranking: Ranking,
   album: { title: string; tracks: unknown[] },
 ): boolean {
-  if (ranking.order.length !== album.tracks.length) return false
+  // The ranking may cover a subset, so it is the album's own length that has to
+  // match — and every position in it must still exist on the record.
+  const trackCount = ranking.trackCount ?? ranking.order.length
+  if (trackCount !== album.tracks.length) return false
+  if (ranking.order.some((index) => index >= album.tracks.length)) return false
   if (!ranking.titleHash) return true
   return ranking.titleHash === hashString(normalizeTitle(album.title))
 }

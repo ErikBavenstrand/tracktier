@@ -43,29 +43,43 @@ export interface RankingSession {
 /** Undo depth kept in storage; deeper than anyone reaches, small enough to store. */
 const HISTORY_LIMIT = 40
 
-export function useRankingSession(album: Album | null): RankingSession {
-  const ids = useMemo(() => album?.tracks.map((track) => track.id) ?? [], [album])
+/**
+ * @param trackIds Which of the album's tracks to rank. Leaving skits out
+ * changes the set, so a stored session for a different set is discarded rather
+ * than resumed into a sort that no longer matches.
+ */
+export function useRankingSession(album: Album | null, trackIds?: string[]): RankingSession {
+  const ids = useMemo(
+    () => trackIds ?? album?.tracks.map((track) => track.id) ?? [],
+    [album, trackIds],
+  )
   const albumRef = album ? `${album.provider}:${album.id}` : null
+  const setRef = albumRef ? `${albumRef}#${ids.join(',')}` : null
 
   const [state, setState] = useState<SortState>(() => initSort([]))
   const restoredFor = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!album || ids.length === 0 || restoredFor.current === albumRef) return
-    restoredFor.current = albumRef
+    if (!album || ids.length === 0 || restoredFor.current === setRef) return
+    restoredFor.current = setRef
 
     const stored = loadSession()
+    const storedIds = stored?.sort
+      ? [...stored.sort.placed, ...stored.sort.queue, stored.sort.current].filter(
+          (id): id is string => Boolean(id),
+        )
+      : []
     const usable =
       stored?.provider === album.provider &&
       stored.albumId === album.id &&
       stored.sort &&
-      // A tracklist that changed under a saved session cannot be resumed.
-      [...stored.sort.placed, ...stored.sort.queue, stored.sort.current]
-        .filter((id): id is string => Boolean(id))
-        .every((id) => ids.includes(id))
+      // The saved sort has to cover exactly this set — no more, no fewer —
+      // or its placements describe a different ranking than the one on screen.
+      storedIds.length === ids.length &&
+      storedIds.every((id) => ids.includes(id))
 
     setState(usable ? stored.sort! : initSort(ids, hash(albumRef ?? '')))
-  }, [album, albumRef, ids])
+  }, [album, ids, setRef])
 
   const persist = useCallback(
     (next: SortState) => {

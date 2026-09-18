@@ -1,27 +1,42 @@
 import { useMemo } from 'react'
 import { player } from '../lib/audio'
+import { findInterludes, reasonLabel } from '../lib/interludes'
 import type { Album } from '../lib/providers/types'
 import { spotifySearchUrl } from '../lib/providers/spotify'
 import { hrefRank, navigate } from '../lib/routes'
 import { estimateTotal, theoreticalMinimum } from '../lib/sorter'
-import { sessionFor } from '../lib/storage'
 import { usePlayer } from '../hooks/usePlayer'
 import { Art, Icon, formatDuration } from './ui'
 
-export function AlbumScreen({ album, onBack }: { album: Album; onBack: () => void }) {
+interface Props {
+  album: Album
+  skipped: Set<string>
+  onToggle: (trackId: string) => void
+  /** Editing the set mid-sort would invalidate the placements already made. */
+  locked: boolean
+  comparisonsSoFar: number
+  onBack: () => void
+}
+
+export function AlbumScreen({
+  album,
+  skipped,
+  onToggle,
+  locked,
+  comparisonsSoFar,
+  onBack,
+}: Props) {
   const playerState = usePlayer()
-  const playable = useMemo(() => album.tracks.filter((t) => t.previewUrl).length, [album.tracks])
 
-  // An unfinished session for this album is picked up rather than discarded.
-  const openSession = useMemo(
-    () => sessionFor(album.provider, album.id),
-    [album.provider, album.id],
-  )
-  const duelsSoFar = openSession?.comparisons ?? 0
+  const suggestions = useMemo(() => {
+    const found = findInterludes(album.tracks)
+    return new Map(found.map((item) => [item.id, item.reason]))
+  }, [album.tracks])
 
-  // Binary insertion's cost is known before a single question is asked.
-  const expectedDuels = estimateTotal(album.tracks.length)
-  const floor = theoreticalMinimum(album.tracks.length)
+  const ranking = album.tracks.filter((track) => !skipped.has(track.id))
+  const expected = estimateTotal(ranking.length)
+  const floor = theoreticalMinimum(ranking.length)
+  const playable = ranking.filter((track) => track.previewUrl).length
 
   return (
     <div className="album fade-in">
@@ -47,9 +62,10 @@ export function AlbumScreen({ album, onBack }: { album: Album; onBack: () => voi
               type="button"
               className="btn btn-primary btn-lg"
               onClick={() => navigate(hrefRank(album.provider, album.id))}
+              disabled={ranking.length < 2}
             >
               <Icon name="trophy" size={17} />
-              {duelsSoFar > 0 ? 'Continue ranking' : 'Start ranking'}
+              {comparisonsSoFar > 0 ? 'Continue ranking' : `Rank ${ranking.length} tracks`}
             </button>
             <a
               className="btn btn-spotify"
@@ -62,13 +78,27 @@ export function AlbumScreen({ album, onBack }: { album: Album; onBack: () => voi
           </div>
 
           <p className="faint album-hero-note">
-            {duelsSoFar > 0
-              ? `${duelsSoFar} question${duelsSoFar === 1 ? '' : 's'} in — picking up where you left off.`
-              : `About ${expectedDuels} questions — near the ${floor} that ranking ${album.tracks.length} tracks needs at minimum.`}
-            {playable < album.tracks.length && (
-              <> {album.tracks.length - playable} of these tracks have no preview clip.</>
+            {comparisonsSoFar > 0
+              ? `${comparisonsSoFar} question${comparisonsSoFar === 1 ? '' : 's'} in — picking up where you left off.`
+              : ranking.length < 2
+                ? 'Keep at least two tracks to rank them.'
+                : `About ${expected} questions — near the ${floor} that ranking ${ranking.length} tracks needs at minimum.`}
+            {playable < ranking.length && ranking.length >= 2 && (
+              <> {ranking.length - playable} have no preview clip.</>
             )}
           </p>
+
+          {suggestions.size > 0 && !locked && (
+            <p className="faint album-hero-note">
+              Interludes are left out by default — nothing in the data marks them, so it is a
+              guess. Tap any track to put it back.
+            </p>
+          )}
+          {locked && (
+            <p className="faint album-hero-note">
+              Start over on the ranking to change which tracks are included.
+            </p>
+          )}
         </div>
       </div>
 
@@ -76,8 +106,11 @@ export function AlbumScreen({ album, onBack }: { album: Album; onBack: () => voi
         {album.tracks.map((track) => {
           const isCurrent = playerState.trackId === track.id
           const playing = isCurrent && playerState.playing
+          const out = skipped.has(track.id)
+          const reason = suggestions.get(track.id)
+
           return (
-            <li key={track.id} className={`tracklist-row ${playing ? 'is-playing' : ''}`}>
+            <li key={track.id} className={`tracklist-row ${playing ? 'is-playing' : ''} ${out ? 'is-out' : ''}`}>
               <button
                 type="button"
                 className="tracklist-play"
@@ -98,8 +131,21 @@ export function AlbumScreen({ album, onBack }: { album: Album; onBack: () => voi
                 {track.artist && <span className="faint truncate">{track.artist}</span>}
               </span>
 
+              {out && reason && <span className="tracklist-reason faint">{reasonLabel(reason)}</span>}
               {track.explicit && <span className="explicit" title="Explicit">E</span>}
               <span className="faint tabular">{formatDuration(track.durationMs)}</span>
+
+              <button
+                type="button"
+                className={`tracklist-toggle ${out ? 'is-out' : ''}`}
+                onClick={() => onToggle(track.id)}
+                disabled={locked}
+                aria-pressed={!out}
+                title={locked ? 'Start over to change which tracks are included' : undefined}
+                aria-label={out ? `Include ${track.title}` : `Leave out ${track.title}`}
+              >
+                <Icon name={out ? 'close' : 'check'} size={14} />
+              </button>
             </li>
           )
         })}

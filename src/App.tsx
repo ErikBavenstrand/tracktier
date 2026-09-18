@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlbumScreen } from './components/AlbumScreen'
 import { CompareScreen } from './components/CompareScreen'
 import { DuelScreen } from './components/DuelScreen'
@@ -16,16 +16,21 @@ import { startRefining } from './lib/sorter'
 import type { ResultStatus } from './components/ResultScreen'
 import {
   clearSession,
-  saveSession,
+  hasSkipChoice,
   loadLibrary,
   loadProfile,
+  loadSkipped,
+  markSkipChoiceMade,
   rankingId,
   saveProfile,
+  saveSession,
+  saveSkipped,
   saveToLibrary,
   sessionFor,
   storageAvailable,
   tagSession,
 } from './lib/storage'
+import { findInterludes } from './lib/interludes'
 import { proportionalCuts } from './lib/tiers'
 import './styles/screens.css'
 
@@ -127,7 +132,52 @@ function AlbumRoute({
   onCover: (cover: string | null) => void
 }) {
   const { album, loading, error, retry } = useAlbum(route.provider, route.id)
-  const session = useRankingSession(album)
+
+  /**
+   * Which tracks are in the ranking.
+   *
+   * On a first visit the detected interludes start excluded — a suggestion, not
+   * a filter, since no catalogue marks them and the guess misfires on records
+   * of very short songs. Once a choice has been made it is remembered verbatim,
+   * so an album deliberately kept whole does not re-propose the same cuts.
+   */
+  const [skipped, setSkipped] = useState<Set<string>>(new Set())
+  const skipKey = album ? `${album.provider}:${album.id}` : null
+  const appliedFor = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!album || !skipKey || appliedFor.current === skipKey) return
+    appliedFor.current = skipKey
+    setSkipped(
+      new Set(
+        hasSkipChoice(album.provider, album.id)
+          ? loadSkipped(album.provider, album.id)
+          : findInterludes(album.tracks).map((item) => item.id),
+      ),
+    )
+  }, [album, skipKey])
+
+  const trackIds = useMemo(
+    () => album?.tracks.filter((track) => !skipped.has(track.id)).map((track) => track.id) ?? [],
+    [album, skipped],
+  )
+
+  const session = useRankingSession(album, trackIds)
+
+  const toggleTrack = useCallback(
+    (trackId: string) => {
+      if (!album) return
+      setSkipped((current) => {
+        const next = new Set(current)
+        if (next.has(trackId)) next.delete(trackId)
+        else next.add(trackId)
+        saveSkipped(album.provider, album.id, [...next])
+        markSkipChoiceMade(album.provider, album.id)
+        return next
+      })
+    },
+    [album],
+  )
 
   useEffect(() => {
     if (album) onCover(album.cover)
@@ -156,7 +206,14 @@ function AlbumRoute({
 
       try {
         const code = encodeRanking(
-          { provider: album.provider, albumId: album.id, order, cuts, label },
+          {
+            provider: album.provider,
+            albumId: album.id,
+            order,
+            trackCount: album.tracks.length,
+            cuts,
+            label,
+          },
           album.title,
         )
         tagSession(code)
@@ -220,7 +277,16 @@ function AlbumRoute({
     )
   }
 
-  return <AlbumScreen album={album} onBack={() => navigate(hrefHome())} />
+  return (
+    <AlbumScreen
+      album={album}
+      skipped={skipped}
+      onToggle={toggleTrack}
+      locked={comparisons > 0}
+      comparisonsSoFar={comparisons}
+      onBack={() => navigate(hrefHome())}
+    />
+  )
 }
 
 /** A ranking decoded straight out of the URL — yours or somebody else's. */

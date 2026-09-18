@@ -219,7 +219,7 @@ function AlbumRoute({
         )
         // The session store already holds the work in progress; the library
         // only takes rankings once they carry a name.
-        tagSession(code)
+        tagSession(album.provider, album.id, code)
         return code
       } catch {
         // Only albums outside the shareable size range fail to encode.
@@ -269,6 +269,10 @@ function AlbumRoute({
       comparisonsSoFar={comparisons}
       rankings={kept}
       onCompare={() => navigate(hrefCompare(kept.map((entry) => entry.code)))}
+      onStartOver={() => {
+        session.reset()
+        clearSession(album.provider, album.id)
+      }}
       onBack={() => navigate(hrefHome())}
     />
   )
@@ -389,7 +393,7 @@ function RankingRoute({
         // Signing changes the code, and the session is matched by it. Without
         // this the ranking loses track of its own sort, and Sharpen and Start
         // over disappear the moment it is saved.
-        if (ownSession) tagSession(signed)
+        if (ownSession) tagSession(album.provider, album.id, signed)
       }
       // The URL now carries the signed code, so sharing it carries the name.
       // replaceState does not fire hashchange, so the route is told directly —
@@ -451,7 +455,7 @@ function RankingRoute({
   if (sort) {
     const ordered = sort.current === null && sort.queue.length === 0
     const startOver = () => {
-      clearSession()
+      clearSession(album.provider, album.id)
       toRank()
     }
     if (!ordered) {

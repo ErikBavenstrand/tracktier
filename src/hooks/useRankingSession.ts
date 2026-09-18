@@ -16,7 +16,7 @@ import {
   type SortState,
   type Verdict,
 } from '../lib/sorter'
-import { clearSession, loadSession, saveSession } from '../lib/storage'
+import { clearSession, saveSession, sessionFor } from '../lib/storage'
 
 export interface RankingSession {
   state: SortState
@@ -63,16 +63,14 @@ export function useRankingSession(album: Album | null, trackIds?: string[]): Ran
     if (!album || ids.length === 0 || restoredFor.current === setRef) return
     restoredFor.current = setRef
 
-    const stored = loadSession()
+    const stored = sessionFor(album.provider, album.id)
     const storedIds = stored?.sort
       ? [...stored.sort.placed, ...stored.sort.queue, stored.sort.current].filter(
           (id): id is string => Boolean(id),
         )
       : []
     const usable =
-      stored?.provider === album.provider &&
-      stored.albumId === album.id &&
-      stored.sort &&
+      stored?.sort &&
       // The saved sort has to cover exactly this set — no more, no fewer —
       // or its placements describe a different ranking than the one on screen.
       storedIds.length === ids.length &&
@@ -125,8 +123,8 @@ export function useRankingSession(album: Album | null, trackIds?: string[]): Ran
   const reset = useCallback(() => {
     const fresh = initSort(ids, hash(albumRef ?? '') + 1)
     setState(fresh)
-    clearSession()
-  }, [albumRef, ids])
+    if (album) clearSession(album.provider, album.id)
+  }, [album, albumRef, ids])
 
   return {
     state,

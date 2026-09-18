@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { player } from '../lib/audio'
 import { findInterludes, reasonLabel } from '../lib/interludes'
 import type { Album } from '../lib/providers/types'
@@ -20,6 +20,8 @@ interface Props {
   /** Everyone whose ranking of this album is kept in this browser. */
   rankings: SavedRanking[]
   onCompare: () => void
+  /** Throws away the answers so far so the track set can be edited again. */
+  onStartOver?: () => void
   onBack: () => void
 }
 
@@ -31,9 +33,11 @@ export function AlbumScreen({
   comparisonsSoFar,
   rankings,
   onCompare,
+  onStartOver,
   onBack,
 }: Props) {
   const playerState = usePlayer()
+  const [restarting, setRestarting] = useState(false)
 
   const suggestions = useMemo(() => {
     const found = findInterludes(album.tracks)
@@ -41,6 +45,9 @@ export function AlbumScreen({
   }, [album.tracks])
 
   const ranking = album.tracks.filter((track) => !skipped.has(track.id))
+  // Only worth explaining when the guess actually took something out; someone
+  // who put every track back was still being told they were missing.
+  const excludedGuesses = [...suggestions.keys()].filter((id) => skipped.has(id)).length
   const expected = estimateTotal(ranking.length)
   const floor = theoreticalMinimum(ranking.length)
   const playable = ranking.filter((track) => track.previewUrl).length
@@ -95,15 +102,54 @@ export function AlbumScreen({
             )}
           </p>
 
-          {suggestions.size > 0 && !locked && (
+          {excludedGuesses > 0 && !locked && (
             <p className="faint album-hero-note">
-              Interludes are left out by default — nothing in the data marks them, so it is a
-              guess. Tap any track to put it back.
+              {excludedGuesses} track{excludedGuesses === 1 ? '' : 's'} below look like skits or
+              interludes, so {excludedGuesses === 1 ? 'it starts' : 'they start'} out of the
+              ranking — nothing in the data marks them, so it is a guess. Use the ✓ at the right
+              of a row to put one back.
             </p>
           )}
-          {locked && (
-            <p className="faint album-hero-note">
-              Start over on the ranking to change which tracks are included.
+          {locked && onStartOver && (
+            /* This used to say "start over on the ranking to change which tracks
+               are included" and offer no way to do it — the only start-over lived
+               on the results screen, ~30 questions away. */
+            <p className="faint album-hero-note album-hero-reset">
+              The track list is fixed until you start over.
+              {restarting ? (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    onClick={() => {
+                      setRestarting(false)
+                      onStartOver()
+                    }}
+                  >
+                    Discard {comparisonsSoFar} answer{comparisonsSoFar === 1 ? '' : 's'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setRestarting(false)}
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setRestarting(true)}
+                  >
+                    <Icon name="undo" size={14} />
+                    Start over
+                  </button>
+                </>
+              )}
             </p>
           )}
         </div>

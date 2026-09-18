@@ -2110,6 +2110,13 @@ kbd {
   color: var(--accent);
 }
 
+.album-hero-reset {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .library-confirm {
   display: flex;
   align-items: center;

@@ -9,7 +9,11 @@ import type { SortState } from './sorter'
 
 const PREFIX = 'tracktour:'
 const KEY_LIBRARY = `${PREFIX}library`
-const KEY_SESSION = `${PREFIX}session`
+/* One slot per album. It used to be a single global one, so starting a second
+   album silently destroyed the first album's answers — no warning, no undo, and
+   nothing in the UI ever suggested only one ranking could be in flight. */
+const SESSION = `${PREFIX}session:`
+const KEY_SESSION_LEGACY = `${PREFIX}session`
 const KEY_PROFILE = `${PREFIX}profile`
 const ALBUM_CACHE = `${PREFIX}album:`
 
@@ -257,13 +261,7 @@ export function isOwnCode(
 
   const album = libraryAlbum(provider, albumId)
   if (album?.rankings.some((item) => item.code === code && item.mine)) return true
-  const session = loadSession()
-  return Boolean(
-    session &&
-      session.provider === provider &&
-      session.albumId === albumId &&
-      session.code === code,
-  )
+  return sessionFor(provider, albumId)?.code === code
 }
 
 // ------------------------------------------------------------ in-flight session
@@ -280,23 +278,33 @@ export interface StoredSession {
   updatedAt: number
 }
 
-export const loadSession = (): StoredSession | null => readJson<StoredSession | null>(KEY_SESSION, null)
+const sessionKey = (provider: ProviderId, albumId: string) => `${SESSION}${provider}:${albumId}`
 
-/** The in-progress session for one album, if that is the one being ranked. */
+/** The in-progress sort for one album, whatever else has been ranked since. */
 export function sessionFor(provider: ProviderId, albumId: string): StoredSession | null {
-  const session = loadSession()
-  return session && session.provider === provider && session.albumId === albumId ? session : null
+  const stored = readJson<StoredSession | null>(sessionKey(provider, albumId), null)
+  if (stored) return stored
+
+  // Whatever was in the old single slot belongs to whichever album it names.
+  const legacy = readJson<StoredSession | null>(KEY_SESSION_LEGACY, null)
+  if (legacy && legacy.provider === provider && legacy.albumId === albumId) {
+    saveSession(legacy)
+    safeRemove(KEY_SESSION_LEGACY)
+    return legacy
+  }
+  return null
 }
 
 export function saveSession(session: StoredSession): void {
-  safeSet(KEY_SESSION, JSON.stringify(session))
+  safeSet(sessionKey(session.provider, session.albumId), JSON.stringify(session))
 }
 
-export const clearSession = (): void => safeRemove(KEY_SESSION)
+export const clearSession = (provider: ProviderId, albumId: string): void =>
+  safeRemove(sessionKey(provider, albumId))
 
-/** Record which share code the live session currently corresponds to. */
-export function tagSession(code: string): void {
-  const session = loadSession()
+/** Record which share code an album's live session currently corresponds to. */
+export function tagSession(provider: ProviderId, albumId: string, code: string): void {
+  const session = sessionFor(provider, albumId)
   if (session) saveSession({ ...session, code })
 }
 

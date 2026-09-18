@@ -5,6 +5,7 @@ import { DuelScreen } from './components/DuelScreen'
 import { ResultScreen } from './components/ResultScreen'
 import { SearchScreen } from './components/SearchScreen'
 import { TractorLogo } from './components/TractorLogo'
+import { Attribution } from './components/Attribution'
 import { AlbumScreenSkeleton, DuelSkeleton, RankingSkeleton } from './components/Skeletons'
 import { EmptyState, Icon } from './components/ui'
 import { useAlbum } from './hooks/useAlbum'
@@ -69,7 +70,7 @@ export function App() {
       <header className="topbar">
         <a className="wordmark" href={hrefHome()}>
           <TractorLogo />
-          tracktier.
+          tracktour.
         </a>
         <span className="topbar-spacer" />
         {route.name !== 'home' && (
@@ -98,21 +99,13 @@ export function App() {
         </p>
       )}
 
-      {/* Deezer's API terms require any application using it to carry a clearly
-          visible Deezer credit, so this is a licence condition, not a courtesy.
-          See developers.deezer.com/guidelines/logo. */}
       <footer className="site-footer">
-        <span>
-          Albums, artwork and previews from{' '}
-          <a href="https://www.deezer.com" target="_blank" rel="noreferrer noopener">
-            Deezer
-          </a>
-        </span>
+        <Attribution />
         <span className="site-footer-sep" aria-hidden="true">
           ·
         </span>
         <a
-          href="https://github.com/ErikBavenstrand/tracktier"
+          href="https://github.com/ErikBavenstrand/tracktour"
           target="_blank"
           rel="noreferrer noopener"
         >

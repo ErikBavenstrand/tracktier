@@ -115,7 +115,7 @@ export function ResultScreen({
         tiers: groups.map((ranks) => ranks.map((rank) => trackOf(order[rank] ?? '')?.title ?? '')),
         label: label || authorLabel,
         accent,
-        footer: 'Made with Tracktier',
+        footer: 'Made with Tracktour',
       })
       if (blob) downloadBlob(blob, `${album.artist} - ${album.title} tier list.png`.replace(/[/\\:]/g, '-'))
     } finally {
@@ -256,7 +256,7 @@ export function ResultScreen({
                         <Icon name={playing ? 'pause' : 'play'} size={12} />
                       </span>
                       <span className="track-chip-rank tabular faint">{rank + 1}</span>
-                      <span className="track-chip-title truncate">{track.title}</span>
+                      <span className="track-chip-title">{track.title}</span>
                       <span className="track-chip-time tabular faint">
                         {formatDuration(track.durationMs)}
                       </span>
@@ -277,7 +277,7 @@ export function ResultScreen({
               const track = trackOf(trackId)
               return track ? (
                 <span key={trackId} className="track-chip is-unplaced">
-                  <span className="track-chip-title truncate">{track.title}</span>
+                  <span className="track-chip-title">{track.title}</span>
                 </span>
               ) : null
             })}
@@ -364,7 +364,7 @@ export function ResultScreen({
             target="_blank"
             rel="noreferrer noopener"
           >
-            Open in Spotify
+            Play on Spotify
           </a>
         </div>
       </section>

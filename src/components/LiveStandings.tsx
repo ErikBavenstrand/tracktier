@@ -161,7 +161,7 @@ export function LiveStandings({ album, placed, pending, duelling, showTiers }: P
                 {startsTier && tier ? tier.label : ''}
               </span>
               <span className="standing-rank tabular faint">{rank + 1}</span>
-              <span className="standing-title truncate">{titleOf(id)}</span>
+              <span className="standing-title">{titleOf(id)}</span>
               {id in moves && (
                 move === 0 ? (
                   <span className="standing-move placed">placed</span>
@@ -179,7 +179,7 @@ export function LiveStandings({ album, placed, pending, duelling, showTiers }: P
           <li key={id} className="standing is-pending">
             <span className="standing-tier" />
             <span className="standing-rank faint">·</span>
-            <span className="standing-title truncate">{titleOf(id)}</span>
+            <span className="standing-title">{titleOf(id)}</span>
           </li>
         ))}
       </ol>

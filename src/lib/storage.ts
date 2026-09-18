@@ -7,7 +7,7 @@ import type { Ranking } from './sharecode'
  * sync — a ranking exists in this browser and in whatever links you hand out.
  */
 
-const PREFIX = 'tracktier:'
+const PREFIX = 'tracktour:'
 const KEY_LIBRARY = `${PREFIX}library`
 const KEY_SESSION = `${PREFIX}session`
 const KEY_PROFILE = `${PREFIX}profile`

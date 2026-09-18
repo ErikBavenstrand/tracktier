@@ -1,5 +1,13 @@
 import { jsonp } from './jsonp'
-import { ProviderError, sortTracks, type Album, type AlbumSummary, type Provider, type Track } from './types'
+import {
+  ensureDistinctTitles,
+  ProviderError,
+  sortTracks,
+  type Album,
+  type AlbumSummary,
+  type Provider,
+  type Track,
+} from './types'
 
 const API = 'https://api.deezer.com'
 
@@ -74,7 +82,14 @@ async function getAlbum(id: string, signal?: AbortSignal): Promise<Album> {
     cover: raw.cover_xl ?? raw.cover_big ?? null,
     trackCount: tracks.length,
     externalUrl: raw.link ?? `https://www.deezer.com/album/${raw.id}`,
-    tracks: sortTracks(tracks.map((t, i) => toTrack(t, artist, i))),
+    // `title_short` is the clean one, but it drops the version in brackets, so
+    // the full title is held in reserve for tracks that would otherwise clash.
+    tracks: sortTracks(
+      ensureDistinctTitles(
+        tracks.map((t, i) => toTrack(t, artist, i)),
+        (track) => tracks.find((t) => String(t.id) === track.id)?.title,
+      ),
+    ),
   }
 }
 

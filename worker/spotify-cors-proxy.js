@@ -6,7 +6,7 @@
  * page simply sends no `Access-Control-Allow-Origin`, so a browser on GitHub
  * Pages cannot read it. This forwards the request and adds that header.
  *
- * Tracktier does NOT need this. It runs entirely on Deezer, which supplies
+ * Tracktour does NOT need this. It runs entirely on Deezer, which supplies
  * search, artwork, tracklists and previews on its own. Deploy this only if you
  * want rankings keyed to real Spotify album ids, then set
  * `VITE_SPOTIFY_PROXY=https://<your-worker>.workers.dev` at build time.
@@ -50,7 +50,7 @@ export default {
     const upstream = await fetch(`${UPSTREAM}${pathname}`, {
       headers: {
         // Spotify serves the data-bearing page only to a browser-like client.
-        'User-Agent': 'Mozilla/5.0 (compatible; Tracktier/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; Tracktour/1.0)',
         'Accept-Language': 'en',
       },
       cf: { cacheTtl: 3600, cacheEverything: true },

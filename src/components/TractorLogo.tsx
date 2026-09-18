@@ -1,7 +1,7 @@
 /**
  * The mark: a tractor, driving and bobbing to the music.
  *
- * "Tracktier" is a tractor if you say it fast enough, so the logo takes the pun
+ * "Tracktour" is a tractor if you say it fast enough, so the logo takes the pun
  * literally. It is drawn rather than animated as a GIF so it stays sharp at any
  * size, picks up the album's accent colour like everything else, and holds
  * still for anyone who has asked for reduced motion.

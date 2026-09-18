@@ -73,7 +73,7 @@ export function AlbumScreen({
               target="_blank"
               rel="noreferrer noopener"
             >
-              Open in Spotify
+              Play on Spotify
             </a>
           </div>
 
@@ -126,8 +126,8 @@ export function AlbumScreen({
                 </span>
               </button>
 
-              <span className="col truncate">
-                <span className="truncate">{track.title}</span>
+              <span className="col tracklist-title">
+                <span>{track.title}</span>
                 {track.artist && <span className="faint truncate">{track.artist}</span>}
               </span>
 

@@ -1,4 +1,12 @@
-import { ProviderError, sortTracks, type Album, type AlbumSummary, type Provider, type Track } from './types'
+import {
+  ensureDistinctTitles,
+  ProviderError,
+  sortTracks,
+  type Album,
+  type AlbumSummary,
+  type Provider,
+  type Track,
+} from './types'
 
 const API = 'https://itunes.apple.com'
 
@@ -72,7 +80,7 @@ async function getAlbum(id: string, signal?: AbortSignal): Promise<Album> {
     cover: artwork(collection.artworkUrl100, 1000),
     trackCount: trackRows.length,
     externalUrl: collection.collectionViewUrl ?? null,
-    tracks: sortTracks(trackRows.map((r, i) => toTrack(r, artist, i))),
+    tracks: sortTracks(ensureDistinctTitles(trackRows.map((r, i) => toTrack(r, artist, i)))),
   }
 }
 

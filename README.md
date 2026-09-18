@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src=".github/banner.svg" alt="tracktier." width="100%">
+<img src=".github/banner.svg" alt="tracktour." width="100%">
 
-**[bavenstrand.se/tracktier](https://bavenstrand.se/tracktier/)**
+**[bavenstrand.se/tracktour](https://bavenstrand.se/tracktour/)**
 
-[![Deploy](https://github.com/ErikBavenstrand/tracktier/actions/workflows/deploy.yml/badge.svg)](https://github.com/ErikBavenstrand/tracktier/actions/workflows/deploy.yml)
+[![Deploy](https://github.com/ErikBavenstrand/tracktour/actions/workflows/deploy.yml/badge.svg)](https://github.com/ErikBavenstrand/tracktour/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-1ed760)](LICENSE)
 
 </div>

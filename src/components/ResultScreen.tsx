@@ -41,6 +41,12 @@ export interface Keeping {
   onForget: () => void
   /** The name the sender signed it with, if any. */
   senderName: string | null
+  /**
+   * Who the ranking belongs to. It has to reach the share code, or the link in
+   * the copy box is a different link from the one in the address bar — and the
+   * app then greets its own unsigned code as a stranger's.
+   */
+  author?: number
 }
 
 interface Props {
@@ -110,13 +116,14 @@ export function ResultScreen({
           trackCount: album.tracks.length,
           cuts,
           label: keeping.name.trim() || undefined,
+          author: keeping.author,
         },
         album.title,
       )
     } catch {
       return null
     }
-  }, [album, cuts, keeping.name, order])
+  }, [album, cuts, keeping.author, keeping.name, order])
 
   const shareUrl = shareCode ? absoluteUrl(hrefRanking(shareCode)) : ''
 
@@ -177,10 +184,9 @@ export function ResultScreen({
             {album.year && <> · {album.year}</>} · {album.tracks.length} tracks
           </p>
 
-          {keeping.state === 'saved' && (
-            <p className="pill pill-accent">
-              <Icon name="check" size={13} />
-              Saved as {keeping.name}
+          {keeping.state === 'yours' && status?.kind !== 'partial' && (
+            <p className="pill pill-warn">
+              Not kept yet — name it below to keep it and get a link
             </p>
           )}
         </div>
@@ -391,8 +397,10 @@ export function ResultScreen({
             <Icon name="link" size={17} /> Share this ranking
           </h2>
           <p className="muted">
-            The whole tier list is packed into the link itself — {shareCode?.length ?? 0} characters,
-            no account, nothing stored on a server.
+            The ranking is not stored anywhere. It is encoded into the{' '}
+            <code>#</code> part of this link, all {shareCode?.length ?? 0} characters of it — and
+            browsers never send that part to a server, so this site never sees your tier list.
+            Anyone with the link can open it; nobody else can.
           </p>
         </div>
 

@@ -373,6 +373,14 @@ h3 {
   color: var(--accent);
 }
 
+/* For the state that needs a signal rather than the one that does not: an
+   unsaved ranking is one closed tab away from being gone. */
+.pill-warn {
+  background: hsl(38 85% 55% / 13%);
+  border-color: hsl(38 85% 55% / 30%);
+  color: hsl(38 90% 72%);
+}
+
 .divider {
   height: 1px;
   background: var(--line);

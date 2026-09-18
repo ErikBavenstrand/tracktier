@@ -374,7 +374,10 @@ function RankingRoute({
             cuts,
             savedAt: Date.now(),
             mine,
-            author: mine ? authorId() : ranking.author,
+            // The saved entry, not authorId(): minting writes to storage, which must
+        // not happen in a render. The share box only appears once saved, so the
+        // entry is always there by the time this code is shown.
+        author: entry?.author ?? ranking.author,
           },
         ),
       )
@@ -490,6 +493,10 @@ function RankingRoute({
         onKeep: keep,
         onForget: forget,
         senderName: ranking.label ?? null,
+        // The saved entry, not authorId(): minting writes to storage, which must
+        // not happen in a render. The share box only appears once saved, so the
+        // entry is always there by the time this code is shown.
+        author: entry?.author ?? ranking.author,
       }}
       others={others.map((item) => ({ label: item.label, mine: item.mine, code: item.code }))}
       onCompare={() => navigate(hrefCompare(others.map((item) => item.code)))}

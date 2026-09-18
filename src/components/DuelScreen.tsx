@@ -38,6 +38,11 @@ export function DuelScreen({ album, session, onFinish, onExit }: Props) {
     (next: Verdict) => {
       if (!pair || verdict) return
       setVerdict(next)
+      // React reuses the same buttons for every pair, so a mouse click leaves
+      // "Pick this" focused for the rest of the run. Space would then activate
+      // it instead of calling a tie — recording the opposite of what the hint
+      // on screen promises, silently, for every question after the first click.
+      ;(document.activeElement as HTMLElement | null)?.blur()
       player.pause()
       verdictTimer.current = window.setTimeout(() => {
         choose(next)
@@ -61,8 +66,9 @@ export function DuelScreen({ album, session, onFinish, onExit }: Props) {
       if (event.metaKey || event.ctrlKey || event.altKey) return
       const target = event.target as HTMLElement | null
       if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return
-      // Space activates whatever button has focus; hijacking it would break
-      // keyboard navigation of the controls below.
+      // Space still belongs to a control the user has deliberately tabbed to.
+      // What it must not do is fire a stale focus left over from a mouse click,
+      // which is what `decide` blurs away.
       if (event.key === ' ' && target && /^(BUTTON|A)$/.test(target.tagName)) return
 
       switch (event.key.toLowerCase()) {

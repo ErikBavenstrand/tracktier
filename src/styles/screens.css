@@ -1579,6 +1579,206 @@ kbd {
   justify-self: end;
 }
 
+/* ----------------------------------------------------- the slopegraph */
+
+/* One line per track, drawn between the places it was given. The story is in
+   the crossings, so agreed tracks fade back and argued-about ones burn. */
+.slope {
+  --slope-warm: hsl(38 88% 58%);
+  --slope-hot: hsl(5 78% 60%);
+  margin: 0 0 24px;
+  padding: 18px 20px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.slope-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 1.25fr) minmax(0, 1fr);
+  gap: 0 16px;
+  align-items: start;
+}
+
+.slope-labels {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  /* Clears the column headers so rank 1 lines up with the first dot. */
+  padding-top: var(--slope-head, 26px);
+}
+
+.slope-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--slope-row);
+  font-size: 12.5px;
+  line-height: 1.15;
+  cursor: default;
+  transition: opacity 0.14s var(--ease), color 0.14s var(--ease);
+}
+
+.slope-labels.is-right .slope-label {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.slope-label-rank {
+  flex-shrink: 0;
+  font-size: 11px;
+  min-width: 16px;
+  text-align: right;
+}
+
+.slope-labels.is-right .slope-label-rank {
+  text-align: left;
+}
+
+.slope-label-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-dim);
+}
+
+.slope-label.is-on .slope-label-title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.slope.is-hovering .slope-label:not(.is-on) {
+  opacity: 0.4;
+}
+
+.slope-plot {
+  min-width: 0;
+}
+
+.slope-heads {
+  position: relative;
+  height: var(--slope-head, 26px);
+}
+
+.slope-head {
+  position: absolute;
+  top: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.slope-head[data-edge='start'] { transform: translateX(0); }
+.slope-head[data-edge='mid'] { transform: translateX(-50%); }
+.slope-head[data-edge='end'] { transform: translateX(-100%); }
+
+.slope-canvas {
+  position: relative;
+  margin-inline: 5px;
+}
+
+.slope-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Heat runs 0 (same place for everyone) to 1 (as far apart as this album
+   allows), and drives colour, weight and how loudly the line speaks. */
+.slope-line line {
+  stroke: var(--slope-ink);
+  stroke-width: calc(1.4px + var(--heat) * 1.3px);
+  stroke-linecap: round;
+  opacity: calc(0.3 + var(--heat) * 0.6);
+  transition: opacity 0.14s var(--ease);
+}
+
+.slope-line.is-on line {
+  opacity: 1;
+  stroke-width: calc(2.4px + var(--heat) * 1.3px);
+}
+
+.slope.is-hovering .slope-line:not(.is-on) line {
+  opacity: 0.08;
+}
+
+.slope-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--slope-ink);
+  opacity: calc(0.4 + var(--heat) * 0.6);
+  transition: opacity 0.14s var(--ease), width 0.14s var(--ease), height 0.14s var(--ease);
+}
+
+.slope-dot.is-on {
+  width: 11px;
+  height: 11px;
+  opacity: 1;
+}
+
+.slope.is-hovering .slope-dot:not(.is-on) {
+  opacity: 0.12;
+}
+
+.slope-key {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 16px;
+  font-size: 11.5px;
+}
+
+.slope-key-swatch {
+  width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+
+.slope-key-swatch:first-child {
+  margin-left: 0;
+}
+
+.slope-key-swatch[data-heat='cool'] {
+  background: var(--accent);
+  opacity: 0.35;
+}
+
+.slope-key-swatch[data-heat='hot'] {
+  background: var(--slope-hot);
+}
+
+/* Narrow screens drop the right-hand titles: the lines and the consensus list
+   below still say who ended up where, and squeezing two columns of track
+   names into a phone makes both unreadable. */
+@media (max-width: 720px) {
+  .slope {
+    padding-inline: 14px;
+  }
+
+  .slope-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(88px, 0.8fr);
+  }
+
+  .slope-labels.is-right {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slope-line line,
+  .slope-dot {
+    transition: none;
+  }
+}
+
 /* ============================================================ footer */
 
 .site-footer {

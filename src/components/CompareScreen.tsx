@@ -6,6 +6,7 @@ import { compareRankings } from '../lib/compare'
 import { decodeRanking, ShareCodeError, type Ranking } from '../lib/sharecode'
 import { DEFAULT_TIERS, proportionalCuts, tierOfRankFromCuts } from '../lib/tiers'
 import { RankingSkeleton } from './Skeletons'
+import { SlopeChart } from './SlopeChart'
 import { Art, CopyButton, EmptyState, Icon } from './ui'
 
 interface Entry {
@@ -186,6 +187,13 @@ export function CompareScreen({
             </p>
           </div>
         </section>
+      )}
+
+      {entries.length > 1 && (
+        <>
+          <h2 className="section-title compare-list-head">Side by side</h2>
+          <SlopeChart names={names} rows={analysis.rows} titleOf={titleOf} />
+        </>
       )}
 
       <div className="compare-columns">

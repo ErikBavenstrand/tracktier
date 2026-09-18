@@ -1398,9 +1398,14 @@ kbd {
 }
 
 /* The dial reads at a glance; the number is there for anyone who wants it. */
+/* Flex, not grid: two auto grid rows stretch to half the circle each, which
+   parks the number a quarter of the way down and the caption three quarters. */
 .agreement-dial {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   width: 104px;
   height: 104px;
   flex-shrink: 0;
@@ -1514,6 +1519,9 @@ kbd {
    never overlap, so this stays readable at any album length and any amount of
    disagreement — which the slopegraph it replaced did not. */
 .gapchart {
+  /* Wide enough to hold a letter. On a 20-track album the axis gives each
+     place about 17px, so neighbouring dots touch rather than overlap. */
+  --dot: 18px;
   margin-bottom: 26px;
 }
 
@@ -1543,9 +1551,15 @@ kbd {
 }
 
 .gapchart-swatch {
-  width: 9px;
-  height: 9px;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
   border-radius: 50%;
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+  color: #08080a;
 }
 
 .gapchart-rows {
@@ -1609,6 +1623,11 @@ kbd {
   font-size: 11.5px;
 }
 
+.gapchart-where {
+  display: none;
+  letter-spacing: 0.02em;
+}
+
 .gapchart-plot {
   padding-inline: 6px;
 }
@@ -1616,7 +1635,7 @@ kbd {
 .gapchart-track {
   position: relative;
   display: block;
-  height: 14px;
+  height: var(--dot);
 }
 
 /* The rule the dots sit on, so a placing can be read against the axis rather
@@ -1644,15 +1663,28 @@ kbd {
 .gapchart-dot {
   position: absolute;
   top: 50%;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
+  display: flex;
+  height: var(--dot);
+  border-radius: 999px;
+  overflow: hidden;
   transform: translate(-50%, -50%);
   box-shadow: 0 0 0 2px var(--surface);
 }
 
 .gapchart-row:hover .gapchart-dot {
   box-shadow: 0 0 0 2px var(--surface-2);
+}
+
+/* Two people on the same place widen the dot into a pill rather than stacking,
+   which reads as "they landed together" instead of as a missing marker. */
+.gapchart-wedge {
+  display: grid;
+  place-items: center;
+  width: var(--dot);
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+  color: #08080a;
 }
 
 .gapchart-gap {
@@ -1686,9 +1718,23 @@ kbd {
 }
 
 @media (max-width: 640px) {
+  /* Under a 20-track album a phone gives each place about 5px, far too little
+     to letter. Colour and the row's tooltip carry it instead. */
+  .gapchart {
+    --dot: 9px;
+  }
+
+  .gapchart-wedge {
+    font-size: 0;
+  }
+
+  .gapchart-where {
+    display: block;
+  }
+
   .gapchart-row,
   .gapchart-head {
-    grid-template-columns: 28px minmax(0, 1fr) minmax(88px, 0.75fr) 30px;
+    grid-template-columns: 26px minmax(0, 1fr) minmax(96px, 0.8fr) 28px;
     gap: 10px;
   }
 

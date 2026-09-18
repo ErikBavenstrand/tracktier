@@ -17,17 +17,16 @@ const PERSON_HUES = [162, 268, 38, 200, 330]
 const inkOf = (person: number) => `hsl(${PERSON_HUES[person % PERSON_HUES.length]} 68% 60%)`
 
 /**
- * When people land on the same place their dots sit exactly on top of one
- * another, which reads as somebody having skipped the track. A dot shared by
- * several is drawn in hard-edged wedges instead, so agreement looks like
- * agreement rather than absence.
+ * Shortest initials that tell everybody apart. Colour alone means looking back
+ * up at the legend on every row, which is most of what made the placings hard
+ * to read; a letter in the dot answers "who rates this higher" on the spot.
  */
-const blendOf = (people: number[]) => {
-  if (people.length === 1) return inkOf(people[0]!)
-  const step = 100 / people.length
-  return `linear-gradient(90deg, ${people
-    .map((person, i) => `${inkOf(person)} ${i * step}% ${(i + 1) * step}%`)
-    .join(', ')})`
+function initialsFor(names: string[]): string[] {
+  const first = names.map((name) => (name.trim()[0] ?? '?').toUpperCase())
+  const shared = new Set(first.filter((letter, i) => first.indexOf(letter) !== i))
+  return first.map((letter, i) =>
+    shared.has(letter) ? names[i]!.trim().slice(0, 2).toUpperCase() : letter,
+  )
 }
 
 /**
@@ -57,6 +56,7 @@ export function GapChart({
     for (const at of row.positions) if (at !== null) depth = Math.max(depth, at + 1)
   }
   const pct = (position: number) => (depth > 1 ? (position / (depth - 1)) * 100 : 50)
+  const initials = initialsFor(names)
 
   // A gap of six places is a chasm on a twelve-track record and a shrug on a
   // forty-track one, so how loudly the badge shouts is scaled to the album.
@@ -70,7 +70,9 @@ export function GapChart({
         <div className="gapchart-legend">
           {names.map((name, person) => (
             <span key={name} className="gapchart-who">
-              <span className="gapchart-swatch" style={{ background: inkOf(person) }} />
+              <span className="gapchart-swatch" style={{ background: inkOf(person) }}>
+                {initials[person]}
+              </span>
               {name}
             </span>
           ))}
@@ -99,7 +101,13 @@ export function GapChart({
           const title = titleOf(row.trackIndex)
 
           return (
-            <li key={row.trackIndex} className="gapchart-row">
+            <li
+              key={row.trackIndex}
+              className="gapchart-row"
+              title={`${title} — ${placed
+                .map((point) => `${names[point.person]} #${point.at + 1}`)
+                .join(' · ')}`}
+            >
               <span
                 className="gapchart-tier"
                 style={{ '--tier-hue': tier.hue } as React.CSSProperties}
@@ -114,6 +122,14 @@ export function GapChart({
                     {missing.join(' and ')} did not rank this
                   </small>
                 )}
+                {/* A phone gives each place about 6px of axis, too little to
+                    letter and barely enough to separate two dots. The placings
+                    are spelled out there instead; the legend maps the initials. */}
+                <small className="gapchart-where faint">
+                  {placed
+                    .map((point) => `${initials[point.person]} #${point.at + 1}`)
+                    .join(' · ')}
+                </small>
               </span>
 
               <span className="gapchart-plot">
@@ -132,9 +148,21 @@ export function GapChart({
                     <span
                       key={at}
                       className="gapchart-dot"
-                      style={{ left: `${pct(at)}%`, background: blendOf(people) }}
-                      title={`${title} — ${people.map((who) => names[who]).join(' and ')} #${at + 1}`}
-                    />
+                      style={{ left: `${pct(at)}%` }}
+                      title={`${people.map((who) => names[who]).join(' and ')} — #${at + 1}`}
+                    >
+                      {/* People who landed on the same place share one dot, so
+                          two markers never hide under each other. */}
+                      {people.map((person) => (
+                        <span
+                          key={person}
+                          className="gapchart-wedge"
+                          style={{ background: inkOf(person) }}
+                        >
+                          {initials[person]}
+                        </span>
+                      ))}
+                    </span>
                   ))}
                 </span>
               </span>

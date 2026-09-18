@@ -23,6 +23,8 @@ export function SearchScreen() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const [library, setLibrary] = useState<LibraryAlbum[]>(loadLibrary)
+  /** Which album's delete is armed, so a mis-tap costs a tap rather than the work. */
+  const [armed, setArmed] = useState<string | null>(null)
   const controller = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -217,14 +219,42 @@ export function SearchScreen() {
                       ))}
                     </span>
                   </a>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    aria-label={`Remove all rankings of ${entry.title}`}
-                    onClick={() => setLibrary(removeAlbum(entry.provider, entry.albumId))}
-                  >
-                    <Icon name="trash" size={16} />
-                  </button>
+                  {/* One tap used to wipe every ranking of the album, your own
+                      included, with no confirmation — and an import whose link
+                      you no longer have cannot be got back. */}
+                  {armed === `${entry.provider}:${entry.albumId}` ? (
+                    <span className="library-confirm">
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        onClick={() => {
+                          setLibrary(removeAlbum(entry.provider, entry.albumId))
+                          setArmed(null)
+                        }}
+                      >
+                        Delete {entry.rankings.length}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setArmed(null)}
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title={`Remove this album and all ${entry.rankings.length} ranking${
+                        entry.rankings.length === 1 ? '' : 's'
+                      } of it`}
+                      aria-label={`Remove all rankings of ${entry.title}`}
+                      onClick={() => setArmed(`${entry.provider}:${entry.albumId}`)}
+                    >
+                      <Icon name="trash" size={16} />
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

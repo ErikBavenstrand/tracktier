@@ -336,6 +336,16 @@ h3 {
   background: #26e26c;
 }
 
+/* Only for a confirmed destructive step, never as a first click. */
+.btn-danger {
+  background: hsl(5 72% 52%);
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: hsl(5 72% 58%);
+}
+
 .btn-sm {
   padding: 7px 14px;
   font-size: 13px;

@@ -338,14 +338,14 @@ export function ResultScreen({
           <div className="share-head">
             <h2>
               <Icon name={keeping.state === 'imported' ? 'link' : 'users'} size={17} />
-              {keeping.state === 'imported' ? 'A ranking from a link' : 'Keep this ranking'}
+              {keeping.state === 'imported' ? 'A ranking from a link' : 'Name it, then share it'}
             </h2>
             <p className="muted">
               {keeping.state === 'imported'
                 ? keeping.senderName
-                  ? `${keeping.senderName} shared this. Add it to your library to compare it against yours.`
-                  : 'This came from someone else and is not saved anywhere yet. Give it a name so you can tell it apart from yours.'
-                : 'Name it to keep it. Without one there is no telling whose is whose once two sit side by side.'}
+                  ? `${keeping.senderName} shared this. Keep it here and you can compare it against your own ranking later, without the link.`
+                  : 'Whoever sent this did not sign it. Name them, and you can keep it here and compare it against your own ranking later.'
+                : 'Your link carries this name, so whoever opens it knows whose ranking it is. It is also how the ranking is kept in this browser.'}
             </p>
           </div>
           <form
@@ -366,9 +366,46 @@ export function ResultScreen({
             />
             <button type="submit" className="btn btn-primary btn-sm" disabled={!keeping.name.trim()}>
               <Icon name="check" size={15} />
-              {keeping.state === 'imported' ? 'Import' : 'Save'}
+              {keeping.state === 'imported' ? 'Import' : 'Save and get the link'}
             </button>
           </form>
+        </section>
+      ) : null}
+
+      {keeping.state === 'imported' && status?.kind !== 'partial' ? (
+        /* Before this, the only thing a stranger on somebody's link could do was
+           type a name into a box — every other action lived in a branch that
+           could not be reached until after importing, which is a decision they
+           have no basis to make yet. */
+        <section className="share card">
+          <div className="share-head">
+            <h2>
+              <Icon name="swap" size={17} /> Your turn
+            </h2>
+            <p className="muted">
+              Answer the same head-to-heads yourself, then put the two side by side and see,
+              track by track, where you and {keeping.senderName ?? 'whoever sent this'} split.
+            </p>
+          </div>
+          <div className="share-actions">
+            {onRerank && (
+              <button type="button" className="btn btn-primary btn-sm" onClick={onRerank}>
+                <Icon name="swap" size={15} />
+                Rank this album yourself
+              </button>
+            )}
+            <CopyButton value={shareUrl} className="btn btn-ghost btn-sm">
+              Copy this link
+            </CopyButton>
+            <a
+              className="btn btn-spotify btn-sm"
+              href={spotifySearchUrl(album.artist, album.title)}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Play on Spotify
+            </a>
+          </div>
         </section>
       ) : status?.kind === 'partial' ? (
         <section className="share card">
@@ -390,7 +427,9 @@ export function ResultScreen({
             </button>
           </div>
         </section>
-      ) : (
+      ) : keeping.state === 'saved' ? (
+      /* Only once it is named: an unnamed link hands somebody a tier list with
+         nobody's name on it, which is the whole reason naming gates sharing. */
       <section className="share card">
         <div className="share-head">
           <h2>
@@ -447,7 +486,7 @@ export function ResultScreen({
           </a>
         </div>
       </section>
-      )}
+      ) : null}
     </div>
   )
 }

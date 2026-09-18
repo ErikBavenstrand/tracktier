@@ -2110,9 +2110,25 @@ kbd {
   color: var(--accent);
 }
 
+.library-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 @media (max-width: 560px) {
+  /* These names are the only evidence on this screen that an import landed, so
+     they wrap onto their own line here rather than disappearing. */
   .library-people {
-    display: none;
+    justify-content: flex-start;
+    max-width: none;
+    width: 100%;
+    margin-top: 6px;
+  }
+
+  .library-link {
+    flex-wrap: wrap;
   }
 }
 

@@ -1,0 +1,489 @@
+/* ---------------------------------------------------------------- tokens */
+
+:root {
+  /* Overwritten per album from the cover art; see lib/palette.ts. */
+  --accent-hsl: 162 73% 46%;
+  --accent-soft-hsl: 162 40% 20%;
+  --glow-hsl: 162 73% 54%;
+
+  --accent: hsl(var(--accent-hsl));
+  --accent-soft: hsl(var(--accent-soft-hsl));
+  --glow: hsl(var(--glow-hsl));
+
+  --bg: #08080a;
+  --surface: #121215;
+  --surface-2: #17171c;
+  --surface-3: #1f1f26;
+  --line: rgb(255 255 255 / 8%);
+  --line-strong: rgb(255 255 255 / 14%);
+
+  --text: #f3f3f4;
+  --text-dim: #a7a7b0;
+  /* 5.1:1 on a card, 5.4:1 on the page — the dimmest this can go and still
+     clear WCAG AA for the track numbers and durations that use it. */
+  --text-faint: #84848f;
+
+  /* Reserved for genuine Spotify actions only, never as a general accent. */
+  --spotify: #1ed760;
+
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 22px;
+
+  --shadow-card: 0 2px 4px rgb(0 0 0 / 30%), 0 12px 32px rgb(0 0 0 / 40%);
+  --shadow-lift: 0 8px 16px rgb(0 0 0 / 35%), 0 28px 64px rgb(0 0 0 / 50%);
+
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --page: 1180px;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* A wash of the album's own colour, so each record owns the page. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -40% 0 auto;
+  height: 90vh;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    60% 50% at 50% 0%,
+    hsl(var(--glow-hsl) / 20%) 0%,
+    hsl(var(--glow-hsl) / 7%) 38%,
+    transparent 70%
+  );
+  transition: background 700ms var(--ease);
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --------------------------------------------------------------- layout */
+
+.shell {
+  width: min(100% - 40px, var(--page));
+  margin-inline: auto;
+  padding-block: 28px 96px;
+}
+
+@media (max-width: 640px) {
+  .shell {
+    width: calc(100% - 32px);
+    padding-block: 18px 80px;
+  }
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 18px;
+  /* Lowercase with a full stop, so it sits tighter than the mixed-case form. */
+  letter-spacing: -0.045em;
+  text-transform: lowercase;
+}
+
+/* ------------------------------------------------------------- the mark */
+
+.tractor {
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+/* One bob per beat at 120bpm — 60000/120 = 500ms — so it sits on the pulse of
+   a 4/4 track. The motion fills the whole beat rather than snapping early and
+   waiting, which is what makes it read as riding the music instead of ticking.
+
+   It squashes and stretches from its own base, so the tractor stays planted on
+   its wheels throughout; the slight opposite squeeze on X is what sells the
+   weight rather than looking like a scale transform. */
+.tractor-rig {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: tractor-bob var(--beat, 500ms) ease-in-out infinite;
+}
+
+@keyframes tractor-bob {
+  0% { transform: scaleY(1) scaleX(1); }
+  30% { transform: scaleY(1.18) scaleX(0.94); }
+  55% { transform: scaleY(1) scaleX(1); }
+  80% { transform: scaleY(0.87) scaleX(1.06); }
+  100% { transform: scaleY(1) scaleX(1); }
+}
+
+/* The wheels answer the same beat, but only by leaning into it. */
+.tractor-wheels {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: tractor-settle var(--beat, 500ms) ease-in-out infinite;
+}
+
+@keyframes tractor-settle {
+  0%, 55%, 100% { transform: scaleY(1); }
+  80% { transform: scaleY(0.96); }
+}
+
+.tractor-spin {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  /* Two beats per turn of the big wheel, so the roll stays in time as well. */
+  animation: tractor-roll calc(var(--beat, 500ms) * 2) linear infinite;
+}
+
+/* The little wheel covers the same ground on a shorter circumference, so it
+   turns faster by exactly the ratio of the two radii (8.4 / 5.2). */
+.tractor-spin-front {
+  animation-duration: calc(var(--beat, 500ms) * 1.238);
+}
+
+@keyframes tractor-roll {
+  to { transform: rotate(360deg); }
+}
+
+.tractor-accent { fill: var(--accent); }
+.tractor-dark { fill: #0c0c10; }
+.tractor-tyre { fill: #18181e; stroke: #2b2b34; stroke-width: 1.4; }
+.tractor-hub { fill: var(--accent); }
+.tractor-glass { fill: #0c0c10; opacity: 0.55; }
+
+.tractor-puff {
+  fill: var(--accent);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: tractor-puff var(--beat, 500ms) ease-out infinite;
+}
+
+.tractor-puff-2 { animation-delay: 90ms; }
+.tractor-puff-3 { animation-delay: 180ms; }
+
+@keyframes tractor-puff {
+  0% { opacity: 0.55; transform: translate(0, 0) scale(0.5); }
+  100% { opacity: 0; transform: translate(-3px, -7px) scale(1.5); }
+}
+
+/* Held still for anyone who asked for that, but still recognisably a tractor. */
+@media (prefers-reduced-motion: reduce) {
+  .tractor-puff { opacity: 0.35; }
+}
+
+.topbar-spacer {
+  flex: 1;
+}
+
+/* ---------------------------------------------------------------- type */
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+  font-weight: 800;
+}
+
+.display {
+  font-size: clamp(34px, 6.4vw, 62px);
+  font-weight: 900;
+  letter-spacing: -0.045em;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.muted { color: var(--text-dim); }
+.faint { color: var(--text-faint); }
+
+.lede {
+  font-size: clamp(15px, 2.2vw, 18px);
+  color: var(--text-dim);
+  max-width: 54ch;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------------------------------------------------------------- buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: var(--surface-3);
+  cursor: pointer;
+  transition: transform 160ms var(--ease), background 160ms var(--ease),
+    border-color 160ms var(--ease), opacity 160ms var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  transform: scale(1.03);
+  background: #26262e;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #06060a;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: hsl(var(--glow-hsl));
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--text-dim);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--text-faint);
+}
+
+.btn-spotify {
+  background: var(--spotify);
+  color: #06060a;
+}
+
+.btn-spotify:hover:not(:disabled) {
+  background: #26e26c;
+}
+
+.btn-sm {
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+.btn-lg {
+  padding: 15px 30px;
+  font-size: 16px;
+}
+
+/* --------------------------------------------------------------- panels */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.pill-accent {
+  background: hsl(var(--accent-hsl) / 14%);
+  border-color: hsl(var(--accent-hsl) / 32%);
+  color: var(--accent);
+}
+
+.divider {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+}
+
+/* ------------------------------------------------------------ album art */
+
+.art {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-3);
+  box-shadow: var(--shadow-card);
+  flex-shrink: 0;
+}
+
+.art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The image only mounts once fully decoded, so this fade never reveals a
+   half-painted JPEG — it just softens the swap from the loading state. */
+.art-img {
+  animation: art-in 150ms ease-out both;
+}
+
+@keyframes art-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.art-loading {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.art-placeholder {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-faint);
+  background: linear-gradient(140deg, var(--surface-3), var(--surface));
+}
+
+/* ------------------------------------------------------------ utilities */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+}
+
+.wrap {
+  flex-wrap: wrap;
+}
+
+.stack > * + * {
+  margin-top: var(--stack, 16px);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.fade-in {
+  animation: fade-in 170ms var(--ease) both;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}

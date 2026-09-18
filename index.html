@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#08080a" />
+    <title>tracktier. — rank every track on an album</title>
+    <meta
+      name="description"
+      content="Duel an album's tracks head to head, get an Elo-ranked tier list, and share it as a link. No account, no server."
+    />
+    <!-- Link unfurls in chat apps. These are necessarily generic: the ranking
+         lives in the URL fragment, which crawlers never receive, so a static
+         host cannot produce a per-ranking preview. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="tracktier." />
+    <meta property="og:title" content="tracktier. — rank every track on an album" />
+    <meta
+      property="og:description"
+      content="Duel an album's tracks head to head and get a tier list you actually agree with. Open the link to see the ranking."
+    />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://api.deezer.com" />
+    <link rel="dns-prefetch" href="https://cdn-images.dzcdn.net" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800;14..32,900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Crect%20width%3D%2732%27%20height%3D%2732%27%20rx%3D%278%27%20fill%3D%27%2308080a%27%2F%3E%3Cg%20fill%3D%27%231ed760%27%3E%3Crect%20x%3D%2717.2%27%20y%3D%276%27%20width%3D%272.2%27%20height%3D%277.4%27%20rx%3D%271.1%27%2F%3E%3Cpath%20d%3D%27M6.6%2012.4h6.8a1%201%200%200%201%20.95.68l1.35%204.02H6.6z%27%2F%3E%3Crect%20x%3D%274.6%27%20y%3D%2716.6%27%20width%3D%2721.4%27%20height%3D%274.8%27%20rx%3D%271.6%27%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2710.2%27%20cy%3D%2721%27%20r%3D%275.6%27%20fill%3D%27%2317171d%27%20stroke%3D%27%232b2b34%27%20stroke-width%3D%271.3%27%2F%3E%3Ccircle%20cx%3D%2710.2%27%20cy%3D%2721%27%20r%3D%272%27%20fill%3D%27%231ed760%27%2F%3E%3Ccircle%20cx%3D%2723.2%27%20cy%3D%2723%27%20r%3D%273.6%27%20fill%3D%27%2317171d%27%20stroke%3D%27%232b2b34%27%20stroke-width%3D%271.3%27%2F%3E%3Ccircle%20cx%3D%2723.2%27%20cy%3D%2723%27%20r%3D%271.3%27%20fill%3D%27%231ed760%27%2F%3E%3C%2Fsvg%3E" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

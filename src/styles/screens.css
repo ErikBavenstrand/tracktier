@@ -1295,66 +1295,6 @@ kbd {
   margin-top: 4px;
 }
 
-.compare-divisive {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  margin-bottom: 22px;
-  font-size: 13.5px;
-  color: var(--text-dim);
-}
-
-.consensus {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 26px;
-}
-
-.consensus-row {
-  display: grid;
-  grid-template-columns: 34px 26px 1fr auto;
-  align-items: center;
-  gap: 14px;
-  padding: 9px 14px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  font-size: 14px;
-}
-
-.consensus-tier {
-  display: grid;
-  place-items: center;
-  height: 28px;
-  border-radius: 7px;
-  font-weight: 900;
-  font-size: 14px;
-  color: #08080a;
-  background: hsl(from var(--accent) calc(h + var(--tier-hue)) s l);
-}
-
-.consensus-rank {
-  font-size: 12px;
-}
-
-.consensus-agreement {
-  height: 5px;
-  border-radius: 999px;
-  background: var(--surface-3);
-  overflow: hidden;
-}
-
-.consensus-agreement span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent);
-}
-
 /* ========================================================= skeletons */
 
 .sk {
@@ -1568,213 +1508,207 @@ kbd {
   margin-bottom: 10px;
 }
 
-.consensus-title {
-  overflow-wrap: anywhere;
+/* ------------------------------------------------- the agreement chart */
+
+/* One row per track, each person's placing marked along a shared axis. Rows
+   never overlap, so this stays readable at any album length and any amount of
+   disagreement — which the slopegraph it replaced did not. */
+.gapchart {
+  margin-bottom: 26px;
 }
 
-.consensus-positions {
-  display: flex;
-  gap: 8px;
-  font-size: 11.5px;
-  justify-self: end;
-}
-
-/* ----------------------------------------------------- the slopegraph */
-
-/* One line per track, drawn between the places it was given. The story is in
-   the crossings, so agreed tracks fade back and argued-about ones burn. */
-.slope {
-  --slope-warm: hsl(38 88% 58%);
-  --slope-hot: hsl(5 78% 60%);
-  margin: 0 0 24px;
-  padding: 18px 20px 14px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-
-.slope-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(130px, 1.25fr) minmax(0, 1fr);
-  gap: 0 16px;
-  align-items: start;
-}
-
-.slope-labels {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  /* Clears the column headers so rank 1 lines up with the first dot. */
-  padding-top: var(--slope-head, 26px);
-}
-
-.slope-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: var(--slope-row);
-  font-size: 12.5px;
-  line-height: 1.15;
-  cursor: default;
-  transition: opacity 0.14s var(--ease), color 0.14s var(--ease);
-}
-
-.slope-labels.is-right .slope-label {
-  flex-direction: row-reverse;
-  text-align: right;
-}
-
-.slope-label-rank {
-  flex-shrink: 0;
+.gapchart-head {
+  padding-inline: 14px;
+  margin-bottom: 10px;
+  align-items: end;
   font-size: 11px;
-  min-width: 16px;
-  text-align: right;
+  letter-spacing: 0.04em;
 }
 
-.slope-labels.is-right .slope-label-rank {
-  text-align: left;
-}
-
-.slope-label-title {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+.gapchart-legend {
+  grid-column: 1 / 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 12.5px;
+  letter-spacing: 0;
   color: var(--text-dim);
 }
 
-.slope-label.is-on .slope-label-title {
-  color: var(--text);
+.gapchart-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-weight: 600;
 }
 
-.slope.is-hovering .slope-label:not(.is-on) {
-  opacity: 0.4;
+.gapchart-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
 }
 
-.slope-plot {
+.gapchart-rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gapchart-row,
+.gapchart-head {
+  display: grid;
+  grid-template-columns: 34px 24px minmax(0, 1fr) minmax(150px, 1.15fr) 34px;
+  align-items: center;
+  gap: 14px;
+}
+
+.gapchart-row {
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  transition: background 0.14s var(--ease);
+}
+
+.gapchart-row:hover {
+  background: var(--surface-2);
+}
+
+.gapchart-tier {
+  display: grid;
+  place-items: center;
+  height: 28px;
+  border-radius: 7px;
+  font-weight: 900;
+  font-size: 14px;
+  color: #08080a;
+  background: hsl(from var(--accent) calc(h + var(--tier-hue)) s l);
+}
+
+.gapchart-rank {
+  font-size: 12px;
+  text-align: right;
+}
+
+.gapchart-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
-.slope-heads {
-  position: relative;
-  height: var(--slope-head, 26px);
+.gapchart-title {
+  overflow-wrap: anywhere;
 }
 
-.slope-head {
-  position: absolute;
-  top: 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
-.slope-head[data-edge='start'] { transform: translateX(0); }
-.slope-head[data-edge='mid'] { transform: translateX(-50%); }
-.slope-head[data-edge='end'] { transform: translateX(-100%); }
-
-.slope-canvas {
-  position: relative;
-  margin-inline: 5px;
-}
-
-.slope-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-/* Heat runs 0 (same place for everyone) to 1 (as far apart as this album
-   allows), and drives colour, weight and how loudly the line speaks. */
-.slope-line line {
-  stroke: var(--slope-ink);
-  stroke-width: calc(1.4px + var(--heat) * 1.3px);
-  stroke-linecap: round;
-  opacity: calc(0.3 + var(--heat) * 0.6);
-  transition: opacity 0.14s var(--ease);
-}
-
-.slope-line.is-on line {
-  opacity: 1;
-  stroke-width: calc(2.4px + var(--heat) * 1.3px);
-}
-
-.slope.is-hovering .slope-line:not(.is-on) line {
-  opacity: 0.08;
-}
-
-.slope-dot {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--slope-ink);
-  opacity: calc(0.4 + var(--heat) * 0.6);
-  transition: opacity 0.14s var(--ease), width 0.14s var(--ease), height 0.14s var(--ease);
-}
-
-.slope-dot.is-on {
-  width: 11px;
-  height: 11px;
-  opacity: 1;
-}
-
-.slope.is-hovering .slope-dot:not(.is-on) {
-  opacity: 0.12;
-}
-
-.slope-key {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 16px;
+.gapchart-name small {
   font-size: 11.5px;
 }
 
-.slope-key-swatch {
-  width: 18px;
+.gapchart-plot {
+  padding-inline: 6px;
+}
+
+.gapchart-track {
+  position: relative;
+  display: block;
+  height: 14px;
+}
+
+/* The rule the dots sit on, so a placing can be read against the axis rather
+   than only against the other person's. */
+.gapchart-track::before {
+  content: '';
+  position: absolute;
+  inset-inline: -6px;
+  top: 50%;
+  height: 1px;
+  background: var(--line);
+}
+
+/* Length is the size of the argument; the gradient runs from whoever rated it
+   highest to whoever rated it lowest, so direction reads without a key. */
+.gapchart-bar {
+  position: absolute;
+  top: 50%;
   height: 3px;
   border-radius: 999px;
-  margin-left: 6px;
+  transform: translateY(-50%);
+  opacity: 0.6;
 }
 
-.slope-key-swatch:first-child {
-  margin-left: 0;
+.gapchart-dot {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2px var(--surface);
 }
 
-.slope-key-swatch[data-heat='cool'] {
-  background: var(--accent);
-  opacity: 0.35;
+.gapchart-row:hover .gapchart-dot {
+  box-shadow: 0 0 0 2px var(--surface-2);
 }
 
-.slope-key-swatch[data-heat='hot'] {
-  background: var(--slope-hot);
+.gapchart-gap {
+  display: grid;
+  place-items: center;
+  height: 21px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: hsl(5 70% 52% / calc(8% + var(--gap-heat) * 20%));
+  color: hsl(5 75% calc(64% + var(--gap-heat) * 14%));
 }
 
-/* Narrow screens drop the right-hand titles: the lines and the consensus list
-   below still say who ended up where, and squeezing two columns of track
-   names into a phone makes both unreadable. */
-@media (max-width: 720px) {
-  .slope {
-    padding-inline: 14px;
+.gapchart-gap.is-quiet {
+  background: none;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.gapchart-axis-plot {
+  grid-column: 4;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-inline: 6px;
+}
+
+.gapchart-axis-gap {
+  grid-column: 5;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .gapchart-row,
+  .gapchart-head {
+    grid-template-columns: 28px minmax(0, 1fr) minmax(88px, 0.75fr) 30px;
+    gap: 10px;
   }
 
-  .slope-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(88px, 0.8fr);
+  /* The consensus rank is the least useful column on a phone: the rows are
+     already in that order. */
+  .gapchart-rank {
+    display: none;
   }
 
-  .slope-labels.is-right {
+  .gapchart-legend { grid-column: 1 / 3; }
+  .gapchart-axis-plot { grid-column: 3; }
+  .gapchart-axis-gap { grid-column: 4; }
+
+  .gapchart-axis-plot span:nth-child(2) {
     display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .slope-line line,
-  .slope-dot {
+  .gapchart-row {
     transition: none;
   }
 }
@@ -1960,11 +1894,6 @@ kbd {
   .tier-badge {
     width: 48px;
     font-size: 21px;
-  }
-
-  .consensus-row {
-    grid-template-columns: 30px 22px 1fr 54px;
-    gap: 10px;
   }
 }
 

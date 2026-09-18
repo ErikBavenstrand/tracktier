@@ -4,9 +4,9 @@ import { loadLibrary } from '../lib/storage'
 import { absoluteUrl, hrefCompare, navigate } from '../lib/routes'
 import { compareRankings } from '../lib/compare'
 import { decodeRanking, ShareCodeError, type Ranking } from '../lib/sharecode'
-import { DEFAULT_TIERS, proportionalCuts, tierOfRankFromCuts } from '../lib/tiers'
+import { proportionalCuts, tierOfRankFromCuts } from '../lib/tiers'
 import { RankingSkeleton } from './Skeletons'
-import { SlopeChart } from './SlopeChart'
+import { GapChart } from './GapChart'
 import { Art, CopyButton, EmptyState, Icon } from './ui'
 
 interface Entry {
@@ -189,13 +189,6 @@ export function CompareScreen({
         </section>
       )}
 
-      {entries.length > 1 && (
-        <>
-          <h2 className="section-title compare-list-head">Side by side</h2>
-          <SlopeChart names={names} rows={analysis.rows} titleOf={titleOf} />
-        </>
-      )}
-
       <div className="compare-columns">
         {analysis.unanimous.length > 0 && (
           <section className="compare-panel card">
@@ -236,30 +229,12 @@ export function CompareScreen({
       </div>
 
       <h2 className="section-title compare-list-head">Together</h2>
-      <ol className="consensus">
-        {analysis.rows.map((row, rank) => {
-          const tier = DEFAULT_TIERS[tierOfRank[rank] ?? 0] ?? DEFAULT_TIERS[0]!
-          return (
-            <li key={row.trackIndex} className="consensus-row">
-              <span
-                className="consensus-tier"
-                style={{ '--tier-hue': tier.hue } as React.CSSProperties}
-              >
-                {tier.label}
-              </span>
-              <span className="consensus-rank tabular faint">{rank + 1}</span>
-              <span className="consensus-title">{titleOf(row.trackIndex)}</span>
-              <span className="consensus-positions faint tabular">
-                {row.positions.map((pos, i) => (
-                  <span key={names[i]} title={names[i]}>
-                    {pos === null ? '—' : pos + 1}
-                  </span>
-                ))}
-              </span>
-            </li>
-          )
-        })}
-      </ol>
+      <GapChart
+        names={names}
+        rows={analysis.rows}
+        titleOf={titleOf}
+        tierOfRank={tierOfRank}
+      />
 
       <section className="share card">
         <div className="share-head">

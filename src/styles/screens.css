@@ -1534,6 +1534,25 @@ kbd {
   border-color: hsl(38 85% 55% / 28%);
 }
 
+.compare-warning.is-stale {
+  align-items: center;
+  border-color: hsl(from var(--accent) h s l / 30%);
+}
+
+.compare-warning.is-stale svg {
+  color: var(--accent);
+}
+
+.compare-warning strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.compare-warning .btn {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 .compare-warning svg {
   flex-shrink: 0;
   margin-top: 2px;

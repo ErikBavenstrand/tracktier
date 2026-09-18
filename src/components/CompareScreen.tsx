@@ -3,7 +3,7 @@ import { useAlbum } from '../hooks/useAlbum'
 import { isOwnCode, loadLibrary, saveRanking, type LibraryAlbum } from '../lib/storage'
 import { absoluteUrl, hrefCompare, navigate } from '../lib/routes'
 import { compareRankings } from '../lib/compare'
-import { decodeRanking, ShareCodeError, type Ranking } from '../lib/sharecode'
+import { daysSince, decodeRanking, ShareCodeError, type Ranking } from '../lib/sharecode'
 import { proportionalCuts, tierOfRankFromCuts } from '../lib/tiers'
 import { RankingSkeleton } from './Skeletons'
 import { GapChart } from './GapChart'
@@ -152,6 +152,36 @@ export function CompareScreen({
   )
   const fresh = entries.filter((entry) => !held.some((item) => item.code === entry.code))
 
+  /**
+   * Anyone in this comparison whose ranking here is older than the one this
+   * browser holds. A comparison is a snapshot, and the most ordinary thing a
+   * group does — somebody re-ranks — silently makes every copy of that link
+   * wrong. Until v4 carried a day stamp this was unanswerable.
+   */
+  const outdated = useMemo(
+    () =>
+      entries.flatMap((entry, index) => {
+        const stamp = entry.ranking.stamp
+        if (stamp === undefined || entry.ranking.author === undefined) return []
+        const newer = held.find(
+          (item) =>
+            item.author === entry.ranking.author &&
+            item.stamp !== undefined &&
+            item.stamp > stamp &&
+            item.code !== entry.code,
+        )
+        if (!newer) return []
+        return [{ index, name: entry.ranking.label || `Listener ${index + 1}`, newer }]
+      }),
+    [entries, held],
+  )
+
+  const refresh = useCallback(() => {
+    const next = [...codes]
+    for (const stale of outdated) next[stale.index] = stale.newer.code
+    navigate(hrefCompare(next))
+  }, [codes, outdated])
+
   const keepAll = useCallback(() => {
     if (!album) return
     let next = library
@@ -260,6 +290,26 @@ export function CompareScreen({
           </p>
         </div>
       </div>
+
+      {outdated.length > 0 && (
+        <p className="compare-warning card is-stale">
+          <Icon name="undo" size={15} />
+          <span>
+            This comparison has{' '}
+            {outdated.map((stale, i) => (
+              <span key={stale.name}>
+                {i > 0 && (i === outdated.length - 1 ? ' and ' : ', ')}
+                <strong>{stale.name}</strong>&apos;s ranking from{' '}
+                {daysSince(entries[stale.index]!.ranking.stamp)} days ago
+              </span>
+            ))}
+            , and you have {outdated.length === 1 ? 'a newer one' : 'newer ones'}.
+          </span>
+          <button type="button" className="btn btn-primary btn-sm" onClick={refresh}>
+            Use the latest
+          </button>
+        </p>
+      )}
 
       {unreadable > 0 && (
         <p className="compare-warning card">

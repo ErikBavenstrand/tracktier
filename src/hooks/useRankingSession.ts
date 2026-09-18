@@ -88,6 +88,10 @@ export function useRankingSession(album: Album | null, trackIds?: string[]): Ran
         sort: { ...next, history: next.history.slice(-HISTORY_LIMIT) },
         comparisons: next.comparisons,
         updatedAt: Date.now(),
+        // Carried so the home screen can list this without refetching.
+        title: album.title,
+        artist: album.artist,
+        cover: album.cover,
       })
     },
     [album],

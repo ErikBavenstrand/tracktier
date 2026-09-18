@@ -18,7 +18,11 @@ export interface TrackVerdict {
   positions: (number | null)[]
   /** Mean position across everyone who ranked it. */
   mean: number
-  /** Widest gap in position between any two people. */
+  /**
+   * Widest gap between any two people, in places on the longest list. Measured
+   * proportionally, so a shorter ranking does not read as systematically
+   * higher than a longer one.
+   */
   spread: number
 }
 
@@ -87,11 +91,35 @@ export function compareRankings(entries: Entry[]): Comparison {
     )
   }
 
+  // Somebody who left the skits out has a shorter list, so on a shared axis
+  // every placing of theirs reads a place or two higher than the equivalent one
+  // on a full list, and gaps measured raw fill up with arguments nobody had.
+  //
+  // Rescaling each list to the same length only inverts the bias — a track that
+  // is last of eight is not the same opinion as eighth of ten. What is actually
+  // comparable is the order people put the tracks they *both* ranked in, which
+  // is the ground Kendall's tau already stands on. Gaps are measured there.
+  // When everyone ranked the same tracks this is the raw position exactly.
+  const common = [...tracks].filter((track) =>
+    entries.every((entry) => entry.order.includes(track)),
+  )
+  const commonRank = entries.map((entry) => {
+    const ranks = new Map<number, number>()
+    entry.order
+      .filter((track) => common.includes(track))
+      .forEach((track, at) => ranks.set(track, at))
+    return ranks
+  })
+
   const rows: TrackVerdict[] = [...tracks].map((trackIndex) => {
     const seen = positions.get(trackIndex)!
     const known = seen.filter((value): value is number => value !== null)
     const mean = known.reduce((sum, value) => sum + value, 0) / (known.length || 1)
-    const spread = known.length > 1 ? Math.max(...known) - Math.min(...known) : 0
+    const shared = commonRank
+      .map((ranks) => ranks.get(trackIndex))
+      .filter((value): value is number => value !== undefined)
+    const spread =
+      shared.length > 1 ? Math.max(...shared) - Math.min(...shared) : 0
     return { trackIndex, positions: seen, mean, spread }
   })
   rows.sort((x, y) => x.mean - y.mean)

@@ -124,3 +124,37 @@ describe('bulk imports from a comparison link', () => {
     expect(rankingsOf()).toHaveLength(1)
   })
 })
+
+describe('which of two codes from one person wins', () => {
+  it('refuses an older dated ranking even on a direct import', () => {
+    saveRanking(ALBUM, ranking({ author: 7, code: 'fresh', stamp: 500, order: [2, 1, 0] }))
+    saveRanking(ALBUM, ranking({ author: 7, code: 'stale', stamp: 494, order: [0, 1, 2] }))
+
+    expect(rankingsOf()).toHaveLength(1)
+    expect(rankingsOf()[0]!.code).toBe('fresh')
+  })
+
+  it('takes a newer dated ranking even in a bulk import', () => {
+    saveRanking(ALBUM, ranking({ author: 7, code: 'old', stamp: 494 }))
+    saveRanking(ALBUM, ranking({ author: 7, code: 'new', stamp: 500 }), false)
+
+    expect(rankingsOf()).toHaveLength(1)
+    expect(rankingsOf()[0]!.code).toBe('new')
+  })
+
+  it('keeps the same-day ranking that arrived last', () => {
+    saveRanking(ALBUM, ranking({ author: 7, code: 'morning', stamp: 500, order: [0, 1, 2] }))
+    saveRanking(ALBUM, ranking({ author: 7, code: 'evening', stamp: 500, order: [2, 1, 0] }))
+
+    expect(rankingsOf()).toHaveLength(1)
+    expect(rankingsOf()[0]!.code).toBe('evening')
+  })
+
+  it('still will not guess when only one side is dated', () => {
+    saveRanking(ALBUM, ranking({ author: 7, code: 'undated', mine: true }))
+    saveRanking(ALBUM, ranking({ author: 7, code: 'dated', stamp: 500 }), false)
+
+    // Nothing here establishes an order, so the bulk import defers.
+    expect(rankingsOf()[0]!.code).toBe('undated')
+  })
+})

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { BitWriter, bitsFor, checksum, toBase64Url } from '../bits'
 import {
+  daysSince,
   decodeRanking,
   encodeRanking,
   MAX_AUTHOR,
+  MAX_STAMP,
   ShareCodeError,
+  stampToday,
   type Ranking,
 } from '../sharecode'
 
@@ -207,5 +210,63 @@ describe('author identity', () => {
     expect(decoded.label).toBe('Erik')
     expect(decoded.author).toBeUndefined()
     expect(decoded.order).toHaveLength(16)
+  })
+})
+
+describe('when a ranking was made', () => {
+  const base = {
+    provider: 'deezer' as const,
+    albumId: '103248',
+    order: [2, 0, 1],
+    trackCount: 3,
+    cuts: [1],
+  }
+
+  it('round-trips a day stamp', () => {
+    const stamp = stampToday()
+    expect(decodeRanking(encodeRanking({ ...base, label: 'Isak', stamp })).stamp).toBe(stamp)
+  })
+
+  it('leaves the stamp undefined when none was given', () => {
+    expect(decodeRanking(encodeRanking({ ...base, label: 'Isak' })).stamp).toBeUndefined()
+  })
+
+  it('tells two codes from one author apart by age', () => {
+    const older = decodeRanking(encodeRanking({ ...base, author: 7, stamp: stampToday() - 6 }))
+    const newer = decodeRanking(encodeRanking({ ...base, author: 7, stamp: stampToday() }))
+    expect(older.author).toBe(newer.author)
+    expect(older.stamp!).toBeLessThan(newer.stamp!)
+    expect(daysSince(older.stamp)).toBe(6)
+    expect(daysSince(newer.stamp)).toBe(0)
+  })
+
+  it('carries a stamp alongside an author and a label', () => {
+    const decoded = decodeRanking(
+      encodeRanking({ ...base, label: 'Isak', author: 4242, stamp: 900 }),
+    )
+    expect(decoded).toMatchObject({ label: 'Isak', author: 4242, stamp: 900 })
+  })
+
+  it('survives the largest stamp it will ever write', () => {
+    expect(decodeRanking(encodeRanking({ ...base, stamp: MAX_STAMP - 1 })).stamp).toBe(
+      MAX_STAMP - 1,
+    )
+  })
+
+  it('costs only a few characters', () => {
+    const plain = encodeRanking({ ...base, label: 'Isak', author: 7 })
+    const dated = encodeRanking({ ...base, label: 'Isak', author: 7, stamp: stampToday() })
+    expect(dated.length - plain.length).toBeLessThanOrEqual(3)
+  })
+
+  it('has no opinion about undated links', () => {
+    expect(daysSince(undefined)).toBeNull()
+  })
+
+  it('still reads a v3 link, which predates stamps', () => {
+    const decoded = decodeRanking('MdRSPwAAAMmoTlGD3NYtSUHMUgxBAM7YiJLmwtYAISRh')
+    expect(decoded.label).toBe('Isak')
+    expect(decoded.author).toBe(4242)
+    expect(decoded.stamp).toBeUndefined()
   })
 })

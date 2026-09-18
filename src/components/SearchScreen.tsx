@@ -9,7 +9,13 @@ import {
 } from '../lib/providers'
 import { fetchOEmbed, parseSpotifyUrl } from '../lib/providers/spotify'
 import { hrefAlbum, navigate } from '../lib/routes'
-import { loadLibrary, removeAlbum, type LibraryAlbum } from '../lib/storage'
+import {
+  loadLibrary,
+  loadSessions,
+  removeAlbum,
+  type LibraryAlbum,
+  type StoredSession,
+} from '../lib/storage'
 import { AlbumGridSkeleton } from './Skeletons'
 import { Art, EmptyState, Icon, Spinner } from './ui'
 
@@ -25,6 +31,7 @@ export function SearchScreen() {
   const [library, setLibrary] = useState<LibraryAlbum[]>(loadLibrary)
   /** Which album's delete is armed, so a mis-tap costs a tap rather than the work. */
   const [armed, setArmed] = useState<string | null>(null)
+  const [inFlight] = useState<StoredSession[]>(loadSessions)
   const controller = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -190,6 +197,41 @@ export function SearchScreen() {
             </div>
           )}
         </>
+      )}
+
+      {/* A ranking in progress survives a closed tab, but nothing on this screen
+          ever said so — the only way back was to remember the album and search
+          for it again. */}
+      {status.kind === 'idle' && inFlight.length > 0 && (
+        <section className="library">
+          <div className="library-head">
+            <h2 className="section-title">Still going</h2>
+          </div>
+          <ul className="library-list">
+            {inFlight.map((session) => {
+              const sort = session.sort!
+              const total = sort.placed.length + sort.queue.length + (sort.current ? 1 : 0)
+              return (
+                <li key={`${session.provider}:${session.albumId}`} className="library-item">
+                  <a
+                    className="library-link"
+                    href={hrefAlbum(session.provider, session.albumId)}
+                  >
+                    <Art src={session.cover ?? null} alt="" size={52} />
+                    <span className="col truncate">
+                      <strong className="truncate">{session.title ?? 'An album'}</strong>
+                      <span className="faint truncate">
+                        {sort.placed.length} of {total} placed ·{' '}
+                        {session.comparisons} question{session.comparisons === 1 ? '' : 's'} in
+                      </span>
+                    </span>
+                    <span className="pill">Continue</span>
+                  </a>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
       )}
 
       {status.kind === 'idle' && (

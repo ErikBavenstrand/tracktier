@@ -110,6 +110,8 @@ export interface SavedRanking {
   mine: boolean
   /** Who made it, from the share code. Absent on rankings kept before v3. */
   author?: number
+  /** The day it was saved, from the share code. Absent before v4. */
+  stamp?: number
 }
 
 /**
@@ -184,14 +186,31 @@ export interface AlbumFacts {
 }
 
 /** Adds one person's ranking of an album, replacing their previous one. */
+/**
+ * Whether an incoming ranking is older than the one already held.
+ *
+ * Undated codes cannot answer this, so they return false and fall back to the
+ * caller's own policy — which is the whole reason v4 added a day stamp.
+ */
+function isOlderThan(incoming: SavedRanking, existing: SavedRanking): boolean {
+  if (incoming.stamp === undefined || existing.stamp === undefined) return false
+  return incoming.stamp < existing.stamp
+}
+
+/** The same question the other way round. Undated on either side is not proof. */
+function isNewerThan(incoming: SavedRanking, existing: SavedRanking): boolean {
+  if (incoming.stamp === undefined || existing.stamp === undefined) return false
+  return incoming.stamp > existing.stamp
+}
+
 export function saveRanking(
   album: AlbumFacts,
   ranking: SavedRanking,
   /**
-   * Bulk imports pass false. A comparison link is a snapshot: the copy of you
-   * inside one somebody sent last week is older than what you hold now, and
-   * nothing in a code says which came first. Replacing on the strength of a
-   * matching author id would quietly swap a newer ranking for an older one.
+   * Bulk imports pass false: a comparison link is a snapshot, and the copy of
+   * somebody inside one sent last week may be older than what they hold now.
+   * With a day stamp on both sides that is answerable and this flag is moot —
+   * it only decides the undated case, where guessing wrong loses work.
    */
   mayReplace = true,
 ): LibraryAlbum[] {
@@ -203,12 +222,17 @@ export function saveRanking(
   )
   const held = existing?.rankings ?? []
   const replacing = held.filter((item) => isSamePerson(item, ranking))
-  // Already exactly this ranking: nothing to do, and nothing to rename.
-  if (replacing.some((item) => item.code === ranking.code)) {
-    if (!mayReplace) return library
-  } else if (!mayReplace && replacing.length > 0) {
+
+  // Nothing to do: this exact ranking is already filed.
+  if (replacing.some((item) => item.code === ranking.code)) return library
+  // Dated, and older than what is held: never a reason to overwrite.
+  if (replacing.some((item) => isOlderThan(ranking, item))) return library
+  // A bulk import replaces only what it can prove is older. A stamp on one side
+  // alone proves nothing, so an undated ranking — including one you made before
+  // v4 — is never displaced by a snapshot out of somebody's comparison link.
+  if (!mayReplace && replacing.length > 0 && !replacing.every((item) => isNewerThan(ranking, item)))
     return library
-  }
+
   const kept = held.filter((item) => !isSamePerson(item, ranking))
   const rankings = [
     ...kept,
@@ -291,6 +315,10 @@ export interface StoredSession {
   code?: string
   /** The interactive sort, mid-flight. Absent on sessions from older builds. */
   sort?: SortState
+  /** Enough to list it on the home screen without refetching the album. */
+  title?: string
+  artist?: string
+  cover?: string | null
   comparisons: number
   updatedAt: number
 }
@@ -318,6 +346,28 @@ export function saveSession(session: StoredSession): void {
 
 export const clearSession = (provider: ProviderId, albumId: string): void =>
   safeRemove(sessionKey(provider, albumId))
+
+/**
+ * Every album with a ranking still in flight, most recent first.
+ *
+ * Sessions survive a closed tab, but until this there was no way to ask what
+ * was in one — so an unfinished ranking existed and was findable only by
+ * navigating back to its album from memory.
+ */
+export function loadSessions(): StoredSession[] {
+  const out: StoredSession[] = []
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key?.startsWith(SESSION)) continue
+      const session = readJson<StoredSession | null>(key, null)
+      if (session?.sort) out.push(session)
+    }
+  } catch {
+    // Blocked storage: nothing to list, which is the right answer anyway.
+  }
+  return out.sort((a, b) => b.updatedAt - a.updatedAt)
+}
 
 /** Record which share code an album's live session currently corresponds to. */
 export function tagSession(provider: ProviderId, albumId: string, code: string): void {

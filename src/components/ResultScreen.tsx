@@ -47,6 +47,8 @@ export interface Keeping {
    * app then greets its own unsigned code as a stranger's.
    */
   author?: number
+  /** Likewise — a code that omits it is a different code. */
+  stamp?: number
 }
 
 interface Props {
@@ -117,13 +119,14 @@ export function ResultScreen({
           cuts,
           label: keeping.name.trim() || undefined,
           author: keeping.author,
+          stamp: keeping.stamp,
         },
         album.title,
       )
     } catch {
       return null
     }
-  }, [album, cuts, keeping.author, keeping.name, order])
+  }, [album, cuts, keeping.author, keeping.name, keeping.stamp, order])
 
   const shareUrl = shareCode ? absoluteUrl(hrefRanking(shareCode)) : ''
 

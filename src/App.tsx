@@ -21,7 +21,13 @@ import {
   parseRoute,
   type Route,
 } from './lib/routes'
-import { decodeRanking, encodeRanking, rankingMatchesAlbum, ShareCodeError } from './lib/sharecode'
+import {
+  decodeRanking,
+  encodeRanking,
+  rankingMatchesAlbum,
+  ShareCodeError,
+  stampToday,
+} from './lib/sharecode'
 import { startRefining } from './lib/sorter'
 import type { ResultStatus } from './components/ResultScreen'
 import {
@@ -356,8 +362,18 @@ function RankingRoute({
       // Keeping something of your own stamps it with this browser's author id,
       // so a later re-rank replaces it instead of piling up beside it. An
       // import keeps whatever author it arrived with, or none at all.
+      // Saving is the event a stamp dates, so keeping your own re-dates it and
+      // an import keeps whatever day it arrived carrying.
+      const stamp = mine ? stampToday() : ranking.stamp
       const signed = encodeRanking(
-        { ...ranking, order, cuts, label: trimmed, author: mine ? authorId() : ranking.author },
+        {
+          ...ranking,
+          order,
+          cuts,
+          label: trimmed,
+          author: mine ? authorId() : ranking.author,
+          stamp,
+        },
         album.title,
       )
       setLibrary(
@@ -501,6 +517,7 @@ function RankingRoute({
         // not happen in a render. The share box only appears once saved, so the
         // entry is always there by the time this code is shown.
         author: entry?.author ?? ranking.author,
+        stamp: entry?.stamp ?? ranking.stamp,
       }}
       others={others.map((item) => ({ label: item.label, mine: item.mine, code: item.code }))}
       onCompare={() => navigate(hrefCompare(others.map((item) => item.code)))}

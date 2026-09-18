@@ -15,8 +15,23 @@ import type { ProviderId } from './providers/types'
  * unobservable by the host.
  */
 
-const VERSION = 3
+const VERSION = 4
 const AUTHOR_BITS = 24
+/** Days since 2024-01-01. 14 bits carries ~45 years, in two or three characters. */
+const STAMP_BITS = 14
+const STAMP_EPOCH = Date.UTC(2024, 0, 1)
+const DAY_MS = 86_400_000
+export const MAX_STAMP = 2 ** STAMP_BITS
+
+/** Today, as a share code counts days. */
+export const stampToday = (): number =>
+  Math.min(MAX_STAMP - 1, Math.max(0, Math.floor((Date.now() - STAMP_EPOCH) / DAY_MS)))
+
+/** How many days ago a stamp was, or null if there is none to compare. */
+export function daysSince(stamp: number | undefined): number | null {
+  if (stamp === undefined) return null
+  return Math.max(0, stampToday() - stamp)
+}
 export const MAX_AUTHOR = 2 ** AUTHOR_BITS
 const MAX_TRACKS = 63
 const MAX_LABEL_BYTES = 40
@@ -47,6 +62,13 @@ export interface Ranking {
    * entry while a namesake gets one of their own. Absent on v1 and v2 links.
    */
   author?: number
+  /**
+   * The day it was last saved. Without it nothing can say which of two codes
+   * from one author came first, so a stale copy doing the rounds in a group
+   * chat overwrites a newer ranking as readily as the other way round. Absent
+   * on v1, v2 and v3 links.
+   */
+  stamp?: number
   /** Guards against the album's tracklist changing under a shared link. */
   titleHash?: number
 }
@@ -64,6 +86,8 @@ export function encodeRanking(ranking: Ranking, albumTitle?: string): string {
   const { provider, albumId, order, cuts, label } = ranking
   const author =
     ranking.author === undefined ? undefined : Math.abs(Math.trunc(ranking.author)) % MAX_AUTHOR
+  const stamp =
+    ranking.stamp === undefined ? undefined : Math.abs(Math.trunc(ranking.stamp)) % MAX_STAMP
   const n = order.length
 
   if (n === 0 || n > MAX_TRACKS) {
@@ -91,8 +115,9 @@ export function encodeRanking(ranking: Ranking, albumTitle?: string): string {
   writer.write(providerCode, 3)
   writer.write(numeric ? 1 : 0, 1)
   writer.write(labelBytes.length > 0 ? 1 : 0, 1)
-  // New in v3, and read only for v3, so v1 and v2 layouts are untouched.
+  // New in v3, and read only for v3 and up, so older layouts are untouched.
   writer.write(author === undefined ? 0 : 1, 1)
+  writer.write(stamp === undefined ? 0 : 1, 1)
   writer.write(n, 6)
   writer.write(trackCount, 6)
   writer.write(cuts.length, 3)
@@ -126,6 +151,7 @@ export function encodeRanking(ranking: Ranking, albumTitle?: string): string {
     writer.writeBytes(labelBytes)
   }
   if (author !== undefined) writer.write(author, AUTHOR_BITS)
+  if (stamp !== undefined) writer.write(stamp, STAMP_BITS)
 
   const body = writer.finish()
   const full = new Uint8Array(body.length + 1)
@@ -160,6 +186,7 @@ export function decodeRanking(code: string): Ranking {
     const numeric = reader.read(1) === 1
     const hasLabel = reader.read(1) === 1
     const hasAuthor = version >= 3 && reader.read(1) === 1
+    const hasStamp = version >= 4 && reader.read(1) === 1
     const n = reader.read(6)
     // v1 predates skipping tracks, so every album track was in the ranking.
     const trackCount = version >= 2 ? reader.read(6) : n
@@ -184,6 +211,7 @@ export function decodeRanking(code: string): Ranking {
       ? new TextDecoder().decode(reader.readBytes(reader.read(6)))
       : undefined
     const author = hasAuthor ? reader.read(AUTHOR_BITS) : undefined
+    const stamp = hasStamp ? reader.read(STAMP_BITS) : undefined
 
     // Positions must be distinct and inside the album, though not all of them
     // need to appear: a ranking that skipped the skits is a subset.
@@ -192,7 +220,7 @@ export function decodeRanking(code: string): Ranking {
       throw new ShareCodeError('That ranking code is corrupt')
     }
 
-    return { provider, albumId, order, trackCount, cuts, label, author, titleHash }
+    return { provider, albumId, order, trackCount, cuts, label, author, stamp, titleHash }
   } catch (error) {
     if (error instanceof ShareCodeError) throw error
     throw new ShareCodeError('That ranking code could not be read')

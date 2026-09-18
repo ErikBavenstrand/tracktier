@@ -107,3 +107,39 @@ describe('comparing rankings', () => {
     expect(unanimous).toHaveLength(25)
   })
 })
+
+describe('people who ranked different numbers of tracks', () => {
+  const full = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  // The same taste exactly, minus two skits at index 8 and 9.
+  const short = [0, 1, 2, 3, 4, 5, 6, 7]
+
+  it('does not read a shorter list as systematically higher', () => {
+    const { rows } = compareRankings([
+      { label: 'Anna', order: full },
+      { label: 'Bo', order: short },
+    ])
+    const shared = rows.filter((row) => row.positions.every((p) => p !== null))
+    // Bo agrees with Anna about every track he ranked, so nothing is contested.
+    expect(shared.every((row) => row.spread === 0)).toBe(true)
+  })
+
+  it('leaves equal-length rankings exactly as they were', () => {
+    const { rows } = compareRankings([
+      { label: 'A', order: [0, 1, 2, 3] },
+      { label: 'B', order: [3, 1, 2, 0] },
+    ])
+    const moved = rows.find((row) => row.trackIndex === 0)!
+    expect(moved.positions).toEqual([0, 3])
+    expect(moved.spread).toBe(3)
+  })
+
+  it('still sees a real disagreement across different lengths', () => {
+    const { rows } = compareRankings([
+      { label: 'Anna', order: full },
+      { label: 'Bo', order: [7, 6, 5, 4, 3, 2, 1, 0] },
+    ])
+    // Over the eight tracks both ranked, Anna's first is Bo's last.
+    const flipped = rows.find((row) => row.trackIndex === 0)!
+    expect(flipped.spread).toBe(7)
+  })
+})

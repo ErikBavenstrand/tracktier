@@ -27,6 +27,7 @@ import type { ResultStatus } from './components/ResultScreen'
 import {
   clearSession,
   hasSkipChoice,
+  authorId,
   isOwnCode,
   libraryAlbum,
   loadLibrary,
@@ -323,7 +324,7 @@ function RankingRoute({
   }, [code, library, ranking])
 
   const mine = useMemo(
-    () => (ranking ? isOwnCode(ranking.provider, ranking.albumId, code) : false),
+    () => (ranking ? isOwnCode(ranking.provider, ranking.albumId, code, ranking.author) : false),
     [code, ranking],
   )
 
@@ -348,8 +349,11 @@ function RankingRoute({
     const trimmed = name.trim()
     if (!album || !ranking || !trimmed) return
     try {
+      // Keeping something of your own stamps it with this browser's author id,
+      // so a later re-rank replaces it instead of piling up beside it. An
+      // import keeps whatever author it arrived with, or none at all.
       const signed = encodeRanking(
-        { ...ranking, order, cuts, label: trimmed },
+        { ...ranking, order, cuts, label: trimmed, author: mine ? authorId() : ranking.author },
         album.title,
       )
       setLibrary(
@@ -370,11 +374,15 @@ function RankingRoute({
             cuts,
             savedAt: Date.now(),
             mine,
+            author: mine ? authorId() : ranking.author,
           },
         ),
       )
       if (mine) {
-        saveProfile({ label: trimmed })
+        // Merged, not replaced: the profile also holds the author id, and
+        // dropping it would mint a fresh one on the next save — every re-rank
+        // then looking like a different person.
+        saveProfile({ ...loadProfile(), label: trimmed })
         // Signing changes the code, and the session is matched by it. Without
         // this the ranking loses track of its own sort, and Sharpen and Start
         // over disappear the moment it is saved.

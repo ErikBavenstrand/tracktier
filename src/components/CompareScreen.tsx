@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAlbum } from '../hooks/useAlbum'
-import { loadLibrary } from '../lib/storage'
+import { isOwnCode, loadLibrary, saveRanking, type LibraryAlbum } from '../lib/storage'
 import { absoluteUrl, hrefCompare, navigate } from '../lib/routes'
 import { compareRankings } from '../lib/compare'
 import { decodeRanking, ShareCodeError, type Ranking } from '../lib/sharecode'
@@ -30,6 +30,7 @@ export function CompareScreen({
 }) {
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [library, setLibrary] = useState<LibraryAlbum[]>(loadLibrary)
 
   const entries = useMemo(() => {
     const out: Entry[] = []
@@ -79,7 +80,7 @@ export function CompareScreen({
   // Offer rankings already in the library for this album.
   const suggestions = useMemo(
     () =>
-      loadLibrary()
+      library
         .filter((album) => !first || (album.provider === first.provider && album.albumId === first.albumId))
         .flatMap((album) =>
           album.rankings
@@ -87,8 +88,55 @@ export function CompareScreen({
             .map((item) => ({ key: `${album.albumId}:${item.label}`, label: item.label, code: item.code })),
         )
         .slice(0, 5),
-    [codes, first],
+    [codes, first, library],
   )
+
+  // A shared comparison is how a group actually spreads, so it has to be
+  // possible to keep what arrived in one — but only when asked, the same as
+  // every other way a ranking gets written.
+  const held = useMemo(
+    () =>
+      library.find(
+        (entry) =>
+          first && entry.provider === first.provider && entry.albumId === first.albumId,
+      )?.rankings ?? [],
+    [first, library],
+  )
+  const fresh = entries.filter((entry) => !held.some((item) => item.code === entry.code))
+
+  const keepAll = useCallback(() => {
+    if (!album) return
+    let next = library
+    entries.forEach((entry, index) => {
+      if (held.some((item) => item.code === entry.code)) return
+      next = saveRanking(
+        {
+          provider: album.provider,
+          albumId: album.id,
+          title: album.title,
+          artist: album.artist,
+          cover: album.cover,
+          trackCount: album.tracks.length,
+          trackTitles: album.tracks.map((track) => track.title),
+        },
+        {
+          label: entry.ranking.label || `Listener ${index + 1}`,
+          code: entry.code,
+          order: entry.ranking.order,
+          cuts: entry.ranking.cuts,
+          savedAt: Date.now(),
+          mine: isOwnCode(
+            entry.ranking.provider,
+            entry.ranking.albumId,
+            entry.code,
+            entry.ranking.author,
+          ),
+          author: entry.ranking.author,
+        },
+      )
+    })
+    setLibrary(next)
+  }, [album, entries, held, library])
 
   const analysis = useMemo(() => {
     if (entries.length === 0) return null
@@ -163,6 +211,28 @@ export function CompareScreen({
           </p>
         </div>
       </div>
+
+      <section className="compare-keep card">
+        <div>
+          <h2>
+            <Icon name="users" size={17} />{' '}
+            {fresh.length === 0 ? 'In your library' : 'Keep these rankings'}
+          </h2>
+          <p className="muted">
+            {fresh.length === 0
+              ? 'Every ranking in this comparison is saved on this device.'
+              : fresh.length === entries.length
+                ? `Nothing here is on this device yet. Keep ${fresh.length === 1 ? 'it' : 'them'} and you can compare against ${fresh.length === 1 ? 'it' : 'them'} later, or re-read ${fresh.length === 1 ? 'it' : 'them'} without the link.`
+                : `${entries.length - fresh.length} of these ${entries.length} are already here. Add the ${fresh.length === 1 ? 'other one' : `other ${fresh.length}`} to keep the whole comparison.`}
+          </p>
+        </div>
+        {fresh.length > 0 && (
+          <button type="button" className="btn btn-primary" onClick={keepAll}>
+            <Icon name="check" size={15} />
+            Add {fresh.length === 1 ? 'it' : `all ${fresh.length}`}
+          </button>
+        )}
+      </section>
 
       {agreementPct !== null && (
         <section className="agreement card">

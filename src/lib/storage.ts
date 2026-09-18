@@ -1,4 +1,5 @@
 import type { Album, ProviderId } from './providers/types'
+import { MAX_AUTHOR } from './sharecode'
 import type { SortState } from './sorter'
 
 /**
@@ -103,6 +104,38 @@ export interface SavedRanking {
   cuts: number[]
   savedAt: number
   mine: boolean
+  /** Who made it, from the share code. Absent on rankings kept before v3. */
+  author?: number
+}
+
+/**
+ * Whether two rankings of an album came from the same person.
+ *
+ * Author ids settle it outright. Without them all there is to go on is the
+ * name, which is a guess: it merges two people who share one, and it cannot
+ * tell your own ranking from somebody else's copy of it. So when the guess
+ * would overwrite something you made with something you imported, it is
+ * treated as two different people and both are kept.
+ */
+function isSamePerson(existing: SavedRanking, incoming: SavedRanking): boolean {
+  if (existing.author !== undefined && incoming.author !== undefined) {
+    return existing.author === incoming.author
+  }
+  const sameName =
+    existing.label.trim().toLowerCase() === incoming.label.trim().toLowerCase()
+  return sameName && !(existing.mine && !incoming.mine)
+}
+
+/** Keeps namesakes apart in the list, since the name is all the UI shows. */
+function distinctLabel(label: string, taken: SavedRanking[]): string {
+  const used = new Set(taken.map((item) => item.label.trim().toLowerCase()))
+  const base = label.trim()
+  if (!used.has(base.toLowerCase())) return base
+  for (let suffix = 2; suffix < 100; suffix++) {
+    const candidate = `${base} (${suffix})`
+    if (!used.has(candidate.toLowerCase())) return candidate
+  }
+  return `${base} (${Date.now()})`
 }
 
 /**
@@ -146,18 +179,19 @@ export interface AlbumFacts {
   trackTitles: string[]
 }
 
-/** Adds or replaces one person's ranking of an album, keyed by their name. */
+/** Adds one person's ranking of an album, replacing their previous one. */
 export function saveRanking(album: AlbumFacts, ranking: SavedRanking): LibraryAlbum[] {
-  const name = ranking.label.trim().toLowerCase()
-  if (!name) return loadLibrary()
+  if (!ranking.label.trim()) return loadLibrary()
 
   const library = loadLibrary()
   const existing = library.find(
     (entry) => entry.provider === album.provider && entry.albumId === album.albumId,
   )
+  const held = existing?.rankings ?? []
+  const kept = held.filter((item) => !isSamePerson(item, ranking))
   const rankings = [
-    ...(existing?.rankings ?? []).filter((item) => item.label.trim().toLowerCase() !== name),
-    ranking,
+    ...kept,
+    { ...ranking, label: distinctLabel(ranking.label, kept) },
   ].sort((a, b) => a.savedAt - b.savedAt)
 
   const updated: LibraryAlbum = { ...album, updatedAt: Date.now(), rankings }
@@ -209,7 +243,18 @@ export function removeAlbum(provider: ProviderId, albumId: string): LibraryAlbum
  * name on it: a code either matches something ranked here or it came from
  * outside. Anything external is offered for import rather than silently kept.
  */
-export function isOwnCode(provider: ProviderId, albumId: string, code: string): boolean {
+export function isOwnCode(
+  provider: ProviderId,
+  albumId: string,
+  code: string,
+  author?: number,
+): boolean {
+  // An author id answers this outright, and keeps answering it on a browser
+  // whose library has been cleared. Reading the profile here rather than
+  // minting one keeps this free of side effects during a render.
+  const me = loadProfile().author
+  if (author !== undefined && me !== undefined) return author === me
+
   const album = libraryAlbum(provider, albumId)
   if (album?.rankings.some((item) => item.code === code && item.mine)) return true
   const session = loadSession()
@@ -286,6 +331,29 @@ export function markSkipChoiceMade(provider: ProviderId, albumId: string): void 
 
 export interface Profile {
   label: string
+  /** This browser's author id, minted once and then never changed. */
+  author?: number
+}
+
+/** 24 bits: short enough to cost four characters in a link, wide enough that
+ *  a collision inside one friend group is not a thing that happens. */
+function mintAuthor(): number {
+  try {
+    const bytes = new Uint32Array(1)
+    crypto.getRandomValues(bytes)
+    return bytes[0]! % MAX_AUTHOR
+  } catch {
+    return Math.floor(Math.random() * MAX_AUTHOR)
+  }
+}
+
+/** This browser's author id, created on first use. */
+export function authorId(): number {
+  const profile = loadProfile()
+  if (profile.author !== undefined) return profile.author
+  const author = mintAuthor()
+  saveProfile({ ...profile, author })
+  return author
 }
 
 export const loadProfile = (): Profile => readJson<Profile>(KEY_PROFILE, { label: '' })

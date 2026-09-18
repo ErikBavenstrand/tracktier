@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { BitWriter, bitsFor, checksum, toBase64Url } from '../bits'
-import { decodeRanking, encodeRanking, ShareCodeError, type Ranking } from '../sharecode'
+import {
+  decodeRanking,
+  encodeRanking,
+  MAX_AUTHOR,
+  ShareCodeError,
+  type Ranking,
+} from '../sharecode'
 
 const shuffled = (n: number, seed = 7) => {
   const order = Array.from({ length: n }, (_, i) => i)
@@ -149,5 +155,57 @@ describe('rankings that skip tracks', () => {
       order: [0, 2, 4, 6, 8, 10, 12, 14], trackCount: 21, cuts: [2, 5],
     })
     expect(code.length).toBeLessThan(40)
+  })
+})
+
+describe('author identity', () => {
+  const base = {
+    provider: 'deezer' as const,
+    albumId: '103248',
+    order: [2, 0, 1],
+    trackCount: 3,
+    cuts: [1],
+  }
+
+  it('round-trips an author id', () => {
+    const code = encodeRanking({ ...base, label: 'Isak', author: 12345 })
+    expect(decodeRanking(code).author).toBe(12345)
+  })
+
+  it('leaves the author undefined when none was given', () => {
+    expect(decodeRanking(encodeRanking({ ...base, label: 'Isak' })).author).toBeUndefined()
+  })
+
+  it('keeps two namesakes apart', () => {
+    const one = encodeRanking({ ...base, label: 'Isak', author: 1 })
+    const two = encodeRanking({ ...base, label: 'Isak', author: 2 })
+    expect(one).not.toBe(two)
+    expect(decodeRanking(one).author).not.toBe(decodeRanking(two).author)
+  })
+
+  it('carries an author without a label', () => {
+    const decoded = decodeRanking(encodeRanking({ ...base, author: 777 }))
+    expect(decoded.label).toBeUndefined()
+    expect(decoded.author).toBe(777)
+  })
+
+  it('survives the largest id it will mint', () => {
+    expect(decodeRanking(encodeRanking({ ...base, author: MAX_AUTHOR - 1 })).author).toBe(
+      MAX_AUTHOR - 1,
+    )
+  })
+
+  it('costs only a few characters', () => {
+    const plain = encodeRanking({ ...base, label: 'Isak' })
+    const signed = encodeRanking({ ...base, label: 'Isak', author: 9_000_000 })
+    expect(signed.length - plain.length).toBeLessThanOrEqual(4)
+  })
+
+  it('still reads links made before authors existed', () => {
+    // A v2 code captured before this field was added.
+    const decoded = decodeRanking('IaCEAAAAlwMYMLYeksWPSn0RVNERXJpawIQ')
+    expect(decoded.label).toBe('Erik')
+    expect(decoded.author).toBeUndefined()
+    expect(decoded.order).toHaveLength(16)
   })
 })

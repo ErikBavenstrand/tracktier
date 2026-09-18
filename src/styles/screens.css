@@ -1513,6 +1513,29 @@ kbd {
   margin-bottom: 10px;
 }
 
+.compare-keep {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding: 16px 20px;
+  margin-bottom: 18px;
+}
+
+.compare-keep h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  margin-bottom: 4px;
+}
+
+.compare-keep p {
+  font-size: 13px;
+  max-width: 62ch;
+}
+
 /* ------------------------------------------------- the agreement chart */
 
 /* One row per track, each person's placing marked along a shared axis. Rows

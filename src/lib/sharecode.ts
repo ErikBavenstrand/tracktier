@@ -15,7 +15,9 @@ import type { ProviderId } from './providers/types'
  * unobservable by the host.
  */
 
-const VERSION = 2
+const VERSION = 3
+const AUTHOR_BITS = 24
+export const MAX_AUTHOR = 2 ** AUTHOR_BITS
 const MAX_TRACKS = 63
 const MAX_LABEL_BYTES = 40
 
@@ -37,6 +39,14 @@ export interface Ranking {
   cuts: number[]
   /** Optional display name for whoever made the ranking. */
   label?: string
+  /**
+   * Who made it. A name cannot do this job once rankings travel between
+   * people: it cannot tell my Isak from another Isak, nor Isak's current
+   * ranking from a stale copy of it doing the rounds. This is a random id
+   * minted once per browser, so the same person's re-rank replaces their own
+   * entry while a namesake gets one of their own. Absent on v1 and v2 links.
+   */
+  author?: number
   /** Guards against the album's tracklist changing under a shared link. */
   titleHash?: number
 }
@@ -52,6 +62,8 @@ const isNumericId = (id: string) => /^\d{1,12}$/.test(id)
 
 export function encodeRanking(ranking: Ranking, albumTitle?: string): string {
   const { provider, albumId, order, cuts, label } = ranking
+  const author =
+    ranking.author === undefined ? undefined : Math.abs(Math.trunc(ranking.author)) % MAX_AUTHOR
   const n = order.length
 
   if (n === 0 || n > MAX_TRACKS) {
@@ -79,6 +91,8 @@ export function encodeRanking(ranking: Ranking, albumTitle?: string): string {
   writer.write(providerCode, 3)
   writer.write(numeric ? 1 : 0, 1)
   writer.write(labelBytes.length > 0 ? 1 : 0, 1)
+  // New in v3, and read only for v3, so v1 and v2 layouts are untouched.
+  writer.write(author === undefined ? 0 : 1, 1)
   writer.write(n, 6)
   writer.write(trackCount, 6)
   writer.write(cuts.length, 3)
@@ -111,6 +125,7 @@ export function encodeRanking(ranking: Ranking, albumTitle?: string): string {
     writer.write(labelBytes.length, 6)
     writer.writeBytes(labelBytes)
   }
+  if (author !== undefined) writer.write(author, AUTHOR_BITS)
 
   const body = writer.finish()
   const full = new Uint8Array(body.length + 1)
@@ -144,6 +159,7 @@ export function decodeRanking(code: string): Ranking {
 
     const numeric = reader.read(1) === 1
     const hasLabel = reader.read(1) === 1
+    const hasAuthor = version >= 3 && reader.read(1) === 1
     const n = reader.read(6)
     // v1 predates skipping tracks, so every album track was in the ranking.
     const trackCount = version >= 2 ? reader.read(6) : n
@@ -167,6 +183,7 @@ export function decodeRanking(code: string): Ranking {
     const label = hasLabel
       ? new TextDecoder().decode(reader.readBytes(reader.read(6)))
       : undefined
+    const author = hasAuthor ? reader.read(AUTHOR_BITS) : undefined
 
     // Positions must be distinct and inside the album, though not all of them
     // need to appear: a ranking that skipped the skits is a subset.
@@ -175,7 +192,7 @@ export function decodeRanking(code: string): Ranking {
       throw new ShareCodeError('That ranking code is corrupt')
     }
 
-    return { provider, albumId, order, trackCount, cuts, label, titleHash }
+    return { provider, albumId, order, trackCount, cuts, label, author, titleHash }
   } catch (error) {
     if (error instanceof ShareCodeError) throw error
     throw new ShareCodeError('That ranking code could not be read')

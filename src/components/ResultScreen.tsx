@@ -3,7 +3,7 @@ import { player } from '../lib/audio'
 import { downloadBlob, renderTierImage } from '../lib/exportImage'
 import type { Album } from '../lib/providers/types'
 import { spotifySearchUrl } from '../lib/providers/spotify'
-import { absoluteUrl, hrefRanking } from '../lib/routes'
+import { absoluteUrl, hrefHome, hrefRanking } from '../lib/routes'
 import { encodeRanking } from '../lib/sharecode'
 import { DEFAULT_TIERS, groupByTier, proportionalCuts, tierCountFor, tierOfRankFromCuts } from '../lib/tiers'
 import { usePlayer } from '../hooks/usePlayer'
@@ -150,7 +150,12 @@ export function ResultScreen({
         tiers: groups.map((ranks) => ranks.map((rank) => trackOf(order[rank] ?? '')?.title ?? '')),
         label: keeping.name.trim() || undefined,
         accent,
-        footer: 'Made with Tracktour',
+        trackCount: album.tracks.length,
+        // Just the address someone would type: no protocol, no empty fragment.
+        home: absoluteUrl(hrefHome())
+          .replace(/^https?:\/\//, '')
+          .replace(/#\/?$/, '')
+          .replace(/\/$/, ''),
       })
       if (blob) downloadBlob(blob, `${album.artist} - ${album.title} tier list.png`.replace(/[/\\:]/g, '-'))
     } finally {

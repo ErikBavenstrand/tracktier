@@ -10,7 +10,8 @@
 </div>
 
 Rank every track on an album by comparing two at a time, with a 30-second
-preview on each side. No account, no server, nothing stored about your taste.
+preview on each side. No account and no server — a ranking lives in your browser
+and in whatever links you hand out.
 
 ```bash
 npm install && npm run dev
@@ -50,11 +51,22 @@ breaks — a real cost of asking the minimum number of questions.
 
 ## Sharing
 
-A ranking packs into a permutation plus tier boundaries: 24 characters for a
-13-track album. The recipient's browser refetches the album, so only positions
-travel. The code lives in the URL *fragment*, which browsers never transmit — on
-GitHub Pages a shared ranking is not merely unstored, it is unobservable by the
-host. Paste several into `#/c/<code>~<code>` for a consensus.
+A ranking packs into a permutation plus tier boundaries: 26 characters for a
+13-track album, 39 once it carries everything needed to share it, 47 for a
+20-track one. The recipient's browser refetches the album, so only positions
+travel. The code lives in the URL *fragment*, which browsers never transmit —
+on GitHub Pages a shared ranking is not merely unstored, it is unobservable by
+the host. Paste several into `#/c/<code>~<code>` to compare them; agreement is
+the mean Kendall tau over every pair of people, measured on the tracks they all
+ranked, so a shorter list does not read as systematically higher.
+
+**A code says who made it and when.** A name cannot tell two friends called Erik
+apart, nor a current ranking from a stale copy doing the rounds in a group chat.
+So a code also carries a random per-browser author id and the day it was saved —
+four characters between them. The same person re-ranking replaces their own
+entry, a namesake gets one of their own, an import never overwrites what you
+made, and a comparison can tell you it is six days out of date and offer the
+newer one. Older codes still read; they just cannot answer those questions.
 
 ## Data source
 
@@ -79,7 +91,8 @@ oEmbed endpoint, then cross-matches to the active catalogue.
 ## Keyboard
 
 `←` `→` pick · `1` `2` hear each side · `space` too close to call · `Z` undo ·
-`enter` finish. Space is left alone while a button has focus.
+`enter` finish. Answering clears focus, so space keeps meaning "too close" after
+a click; it still activates a control you deliberately tab to.
 
 ## Deploying
 

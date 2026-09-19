@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   activeSourceLabel,
   findAcrossProviders,
@@ -12,7 +12,9 @@ import { hrefAlbum, navigate } from '../lib/routes'
 import {
   loadLibrary,
   loadSessions,
+  readStaleAlbum,
   removeAlbum,
+  unfinishedSessions,
   type LibraryAlbum,
   type StoredSession,
 } from '../lib/storage'
@@ -32,6 +34,19 @@ export function SearchScreen() {
   /** Which album's delete is armed, so a mis-tap costs a tap rather than the work. */
   const [armed, setArmed] = useState<string | null>(null)
   const [inFlight] = useState<StoredSession[]>(loadSessions)
+
+  const unfinished = useMemo(
+    () =>
+      unfinishedSessions(inFlight, library).map((row) => ({
+        ...row,
+        sort: row.session.sort!,
+        // Sessions only started carrying the album's name recently; older ones
+        // fall back to whatever the album cache still holds, rather than
+        // rendering as "An album" with no art.
+        album: readStaleAlbum(row.session.provider, row.session.albumId),
+      })),
+    [inFlight, library],
+  )
   const controller = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -202,14 +217,13 @@ export function SearchScreen() {
       {/* A ranking in progress survives a closed tab, but nothing on this screen
           ever said so — the only way back was to remember the album and search
           for it again. */}
-      {status.kind === 'idle' && inFlight.length > 0 && (
+      {status.kind === 'idle' && unfinished.length > 0 && (
         <section className="library">
           <div className="library-head">
-            <h2 className="section-title">Still going</h2>
+            <h2 className="section-title">Not finished</h2>
           </div>
           <ul className="library-list">
-            {inFlight.map((session) => {
-              const sort = session.sort!
+            {unfinished.map(({ session, sort, album, done }) => {
               const total = sort.placed.length + sort.queue.length + (sort.current ? 1 : 0)
               return (
                 <li key={`${session.provider}:${session.albumId}`} className="library-item">
@@ -217,15 +231,20 @@ export function SearchScreen() {
                     className="library-link"
                     href={hrefAlbum(session.provider, session.albumId)}
                   >
-                    <Art src={session.cover ?? null} alt="" size={52} />
+                    <Art src={session.cover ?? album?.cover ?? null} alt="" size={52} />
                     <span className="col truncate">
-                      <strong className="truncate">{session.title ?? 'An album'}</strong>
+                      <strong className="truncate">
+                        {session.title ?? album?.title ?? 'An album'}
+                      </strong>
                       <span className="faint truncate">
-                        {sort.placed.length} of {total} placed ·{' '}
-                        {session.comparisons} question{session.comparisons === 1 ? '' : 's'} in
+                        {done
+                          ? `Ranked in ${session.comparisons} questions · not kept yet`
+                          : `${sort.placed.length} of ${total} placed · ${session.comparisons} question${
+                              session.comparisons === 1 ? '' : 's'
+                            } in`}
                       </span>
                     </span>
-                    <span className="pill">Continue</span>
+                    <span className="pill">{done ? 'Name it' : 'Continue'}</span>
                   </a>
                 </li>
               )

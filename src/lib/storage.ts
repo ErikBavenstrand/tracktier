@@ -375,6 +375,28 @@ export function tagSession(provider: ProviderId, albumId: string, code: string):
   if (session) saveSession({ ...session, code })
 }
 
+/**
+ * The sessions worth putting in front of someone, newest first.
+ *
+ * A session outlives the ranking it produced, because the results screen still
+ * needs it for Sharpen and Start over. Listing them all meant an album you had
+ * finished and named appeared twice on the home screen — once under its own
+ * name, and once as a nameless row inviting you to carry on ranking something
+ * already done. A session whose code is in the library has been kept.
+ */
+export function unfinishedSessions(
+  sessions: StoredSession[],
+  library: LibraryAlbum[],
+): { session: StoredSession; done: boolean }[] {
+  const kept = new Set(library.flatMap((entry) => entry.rankings.map((item) => item.code)))
+  return sessions
+    .filter((session) => session.sort && (!session.code || !kept.has(session.code)))
+    .map((session) => ({
+      session,
+      done: session.sort!.current === null && session.sort!.queue.length === 0,
+    }))
+}
+
 // ------------------------------------------------------------ skipped tracks
 
 const SKIPPED = `${PREFIX}skipped:`

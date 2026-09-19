@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { authorId, isOwnCode, loadLibrary, saveRanking, type SavedRanking } from '../storage'
+import {
+  authorId,
+  isOwnCode,
+  loadLibrary,
+  saveRanking,
+  unfinishedSessions,
+  type LibraryAlbum,
+  type SavedRanking,
+  type StoredSession,
+} from '../storage'
 
 // storage.ts talks to localStorage directly; a Map is all it needs from one.
 beforeEach(() => {
@@ -156,5 +165,81 @@ describe('which of two codes from one person wins', () => {
 
     // Nothing here establishes an order, so the bulk import defers.
     expect(rankingsOf()[0]!.code).toBe('undated')
+  })
+})
+
+describe('what still needs finishing', () => {
+  const session = (over: Partial<StoredSession> = {}): StoredSession => ({
+    provider: 'deezer',
+    albumId: '103248',
+    code: 'a-code',
+    comparisons: 19,
+    updatedAt: 1,
+    sort: {
+      phase: 'placing',
+      placed: ['a', 'b'],
+      queue: ['c'],
+      current: 'd',
+      lo: 0,
+      hi: 0,
+      cursor: 0,
+      bubble: 0,
+      refineBudget: 0,
+      refined: false,
+      comparisons: 19,
+      history: [],
+    },
+    ...over,
+  })
+
+  const shelf = (codes: string[]): LibraryAlbum[] => [
+    {
+      provider: 'deezer',
+      albumId: '103248',
+      title: 'The Eminem Show',
+      artist: 'Eminem',
+      cover: null,
+      trackCount: 3,
+      trackTitles: [],
+      updatedAt: 1,
+      rankings: codes.map((code) => ({
+        label: 'Isak',
+        code,
+        order: [0],
+        cuts: [],
+        savedAt: 1,
+        mine: true,
+      })),
+    },
+  ]
+
+  const finished = { ...session().sort!, current: null, queue: [] }
+
+  it('drops a session whose ranking has been kept', () => {
+    // The bug: finishing and naming a ranking left its session behind, so the
+    // album showed up twice — once named, once as "Continue ranking".
+    expect(unfinishedSessions([session({ code: 'kept' })], shelf(['kept']))).toEqual([])
+  })
+
+  it('keeps one still mid-sort even when other rankings are saved', () => {
+    const rows = unfinishedSessions([session({ code: 'live' })], shelf(['something-else']))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.done).toBe(false)
+  })
+
+  it('keeps a finished ranking that was never named, and says so', () => {
+    const rows = unfinishedSessions([session({ code: 'unnamed', sort: finished })], shelf([]))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.done).toBe(true)
+  })
+
+  it('shows a re-rank that supersedes what is saved', () => {
+    // Sharpening produces a new code; the library still holds the old one.
+    const rows = unfinishedSessions([session({ code: 'sharpened' })], shelf(['original']))
+    expect(rows).toHaveLength(1)
+  })
+
+  it('ignores a session with no sort in it', () => {
+    expect(unfinishedSessions([session({ sort: undefined })], shelf([]))).toEqual([])
   })
 })

@@ -10,7 +10,13 @@ import { AlbumScreenSkeleton, DuelSkeleton, RankingSkeleton } from './components
 import { EmptyState, Icon } from './components/ui'
 import { useAlbum } from './hooks/useAlbum'
 import { useRankingSession } from './hooks/useRankingSession'
-import { applyPalette, DEFAULT_PALETTE, paletteFromImage, type Palette } from './lib/palette'
+import {
+  applyPalette,
+  cachedPalette,
+  DEFAULT_PALETTE,
+  paletteFromImage,
+  type Palette,
+} from './lib/palette'
 import {
   hrefAlbum,
   hrefCompare,
@@ -70,6 +76,14 @@ export function App() {
   }, [])
 
   const onCover = useCallback((cover: string | null) => {
+    // A colour already read is applied in the same tick the album arrives,
+    // rather than after a round trip that can only produce the same answer.
+    const known = cachedPalette(cover)
+    if (known) {
+      setPalette(known)
+      applyPalette(known)
+      return
+    }
     void paletteFromImage(cover).then((next) => {
       setPalette(next)
       applyPalette(next)

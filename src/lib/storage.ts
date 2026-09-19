@@ -16,6 +16,7 @@ const SESSION = `${PREFIX}session:`
 const KEY_SESSION_LEGACY = `${PREFIX}session`
 const KEY_PROFILE = `${PREFIX}profile`
 const ALBUM_CACHE = `${PREFIX}album:`
+const PALETTE = `${PREFIX}palette:`
 
 /** Deezer signs preview URLs for ~15 minutes, so its cache entries expire fast. */
 const ALBUM_TTL_MS: Record<ProviderId, number> = {
@@ -90,6 +91,39 @@ export function readCachedAlbum(provider: ProviderId, id: string): Album | null 
  */
 export function readStaleAlbum(provider: ProviderId, id: string): Album | null {
   return readJson<CachedAlbum | null>(`${ALBUM_CACHE}${provider}:${id}`, null)?.album ?? null
+}
+
+/**
+ * The accent pulled out of a cover, kept so it is never pulled twice.
+ *
+ * Reading a sleeve's colour costs a download and a canvas pass, and the answer
+ * never changes, so the second visit to an album should not repeat either —
+ * that wait was the whole of the delay before the page took on the album's
+ * colour. Stored separately from the album cache because that one expires with
+ * Deezer's preview links, and a colour does not.
+ */
+export function readPalette(cover: string): { accent: string; accentSoft: string; glow: string } | null {
+  return readJson<{ accent: string; accentSoft: string; glow: string } | null>(
+    `${PALETTE}${hashKey(cover)}`,
+    null,
+  )
+}
+
+export function savePalette(
+  cover: string,
+  palette: { accent: string; accentSoft: string; glow: string },
+): void {
+  safeSet(`${PALETTE}${hashKey(cover)}`, JSON.stringify(palette))
+}
+
+/** Cover URLs are long and contain characters localStorage keys need not carry. */
+function hashKey(value: string): string {
+  let hash = 2166136261
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36)
 }
 
 // -------------------------------------------------------------------- library

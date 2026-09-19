@@ -6,6 +6,8 @@
  * wrong falls back to the house colour rather than surfacing an error.
  */
 
+import { readPalette, savePalette } from './storage'
+
 export interface Palette {
   /** `H S% L%` triples, ready to drop into a CSS colour function. */
   accent: string
@@ -38,6 +40,38 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   return [hue * 360, saturation * 100, lightness * 100]
 }
 
+/**
+ * The same sleeve, small.
+ *
+ * Covers arrive at 1000x1000 — about 150KB — and the extractor immediately
+ * downsamples to 32x32, so the accent used to wait on a download two orders of
+ * magnitude bigger than it needed. Both CDNs put the size in the path, so the
+ * thumbnail is a rewrite away: the Eminem Show sleeve goes 149,732 bytes to
+ * 1,963. Anything unrecognised is fetched as-is.
+ */
+export function thumbnailOf(src: string): string {
+  // Deezer: .../cover/<hash>/1000x1000-000000-80-0-0.jpg
+  const deezer = src.replace(/\/\d+x\d+(-[\d-]+)?\.jpg/, '/64x64$1.jpg')
+  if (deezer !== src) return deezer
+  // Apple: .../100x100bb.jpg
+  return src.replace(/\/\d+x\d+bb\./, '/64x64bb.')
+}
+
+/** Extraction is deterministic, so a cover only ever needs reading once. */
+const remembered = new Map<string, Palette>()
+
+export function cachedPalette(src: string | null): Palette | null {
+  if (!src) return DEFAULT_PALETTE
+  const held = remembered.get(src)
+  if (held) return held
+  const stored = readPalette(src)
+  if (stored) {
+    remembered.set(src, stored)
+    return stored
+  }
+  return null
+}
+
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const image = new Image()
@@ -49,8 +83,10 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
 
 export async function paletteFromImage(src: string | null): Promise<Palette> {
   if (!src) return DEFAULT_PALETTE
+  const known = cachedPalette(src)
+  if (known) return known
   try {
-    const image = await loadImage(src)
+    const image = await loadImage(thumbnailOf(src))
     const size = 32
     const canvas = document.createElement('canvas')
     canvas.width = size
@@ -93,11 +129,14 @@ export async function paletteFromImage(src: string | null): Promise<Palette> {
     const saturation = Math.round(Math.min(85, Math.max(45, best.s)))
     const lightness = Math.round(Math.min(62, Math.max(46, best.l)))
 
-    return {
+    const palette = {
       accent: `${hue} ${saturation}% ${lightness}%`,
       accentSoft: `${hue} ${Math.round(saturation * 0.6)}% 20%`,
       glow: `${hue} ${saturation}% ${Math.min(70, lightness + 8)}%`,
     }
+    remembered.set(src, palette)
+    savePalette(src, palette)
+    return palette
   } catch {
     return DEFAULT_PALETTE
   }

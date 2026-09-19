@@ -130,10 +130,15 @@ a {
   }
 }
 
+/* The bar is centred and sized by its tallest child, and "New album" is taller
+   than the wordmark — so the bar grew on every page that has one and the
+   wordmark sank a few pixels as it re-centred. Reserving the height keeps the
+   mark in the same place whether or not there is a button beside it. */
 .topbar {
   display: flex;
   align-items: center;
   gap: 16px;
+  min-height: 40px;
   margin-bottom: 40px;
 }
 

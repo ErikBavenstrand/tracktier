@@ -1521,16 +1521,6 @@ kbd {
   margin-bottom: 10px;
 }
 
-.hero-lede {
-  margin-top: 14px;
-  max-width: 54ch;
-}
-
-.hero-lede em {
-  color: var(--text);
-  font-style: italic;
-}
-
 .compare-warning {
   display: flex;
   align-items: flex-start;
